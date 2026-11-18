@@ -11,7 +11,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk      # choix de dossier, messages, tableaux
 
 from outils.gagner_de_la_place import caches         # la logique des caches (aucune fenêtre dedans)
-from style import BLEU, FOND, GRIS, ORANGE, ROUGE, VERT
+from ui.style import BLEU, FOND, GRIS, ORANGE, ROUGE, VERT
 
 
 # ------------------------------------------------------------

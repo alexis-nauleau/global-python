@@ -20,10 +20,10 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox      # choix de dossier + petites fenêtres de message
 
-from page_caches import PageCaches              # la page des caches
-from page_images import PageImages              # la page des images
-from sortie import Sortie                       # la boîte "Résultat"
-from style import BLEU, FOND, FOND_MENU, MENU_ACTIF, ROUGE    # les couleurs
+from ui.page_caches import PageCaches              # la page des caches
+from ui.page_images import PageImages              # la page des images
+from ui.sortie import Sortie                       # la boîte "Résultat"
+from ui.style import BLEU, FOND, FOND_MENU, MENU_ACTIF, ROUGE    # les couleurs
 
 PAGES = [
     # ===== Section "Gagner de la place" =====
