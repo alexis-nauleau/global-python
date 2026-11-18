@@ -124,6 +124,7 @@ LANCEMENT = {
         "mode": "dossier",
         "simulation": [],
         "reel": ["--appliquer"],
+         "reponse": True,
         "confirmation": "Le dossier node_modules des projets dormants sera SUPPRIMÉ "
                         "(ton code n'est jamais touché).\n"
                         "Le script te demandera encore de taper OUI dans la zone Résultat.",
@@ -144,7 +145,7 @@ LANCEMENT = {
     },
     # Ce script propose déjà tout seul : choix du dossier, simulation, puis confirmation (o/n).
     # Ses questions s'affichent dans la boîte "Résultat" : réponds dans la zone "Réponse".
-    "outils/photos/ranger_photos.py": {"mode": "console"},
+    "outils/photos/ranger_photos.py": {"mode": "console", "reponse": True},
     "outils/photos/supprimer_doublons.py": {
         "mode": "dossier",
         # ATTENTION : ce script SUPPRIME par défaut. Pour simuler, il faut lui ajouter --simulation.
@@ -178,7 +179,7 @@ class Sortie(tk.Frame):
     """Une boîte de texte + une zone de réponse. Elle lance un script et en affiche le texte
     en direct (avant, ce texte s'affichait dans PowerShell)."""
 
-    def __init__(self, parent):
+    def __init__(self, parent, avec_reponse=False):
         super().__init__(parent, bg=FOND)          # super().__init__ = "construis d'abord la boîte de base"
         self.processus = None             # le script en train de tourner (None = aucun)
         self.arret_demande = False        # vrai si TU as cliqué sur "Arrêter"
@@ -227,7 +228,8 @@ class Sortie(tk.Frame):
 
         # --- La ligne du bas : la zone de réponse (pour les scripts qui posent une question) ---
         saisie = tk.Frame(self, bg=FOND)
-        saisie.pack(fill="x", pady=(6, 0))
+        if avec_reponse:                           # cachée (jamais rangée avec pack) si le script ne pose aucune question
+            saisie.pack(fill="x", pady=(6, 0))
 
         tk.Label(saisie, text="Réponse :", font=("Arial", 9), bg=FOND).pack(side="left")
 
@@ -834,7 +836,10 @@ class Application:
 
         # La boîte "Résultat" est créée ICI (pour que les boutons des lignes puissent s'en servir),
         # mais rangée plus bas, APRÈS les lignes : elle s'affiche donc en dessous d'elles.
-        sortie = Sortie(page)
+                # any(...) = "vrai si AU MOINS un des outils de la page pose des questions" (réglage "reponse").
+        pose_des_questions = any(LANCEMENT.get(fichier, {}).get("reponse")
+                                 for _nom, _description, fichier in definition["outils"])
+        sortie = Sortie(page, avec_reponse=pose_des_questions)
         self.sorties.append(sortie)
 
         # Une boucle sur la liste "outils" de la fiche
