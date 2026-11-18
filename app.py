@@ -105,8 +105,11 @@ if len(cles) != len(set(cles)):
 #                  Le résultat s'affiche dans la boîte "Résultat".
 #     "dossier_lecture" -> comme "dossier", mais pour un script qui ne fait que LIRE (il ne
 #                  modifie ni ne supprime rien) : un seul bouton, qui te laisse choisir le dossier.
+#     "chercher" -> en deux temps : "Chercher" (choisis le dossier, le script montre ce qu'il ferait,
+#                  sans rien changer) puis "Appliquer" (grisé tant que la recherche n'est pas
+#                  terminée) qui agit pour de vrai sur CE MÊME dossier.
 #
-#   Pour le mode "dossier" uniquement :
+#   Pour les modes "dossier" et "chercher" :
 #     "simulation"   : les options ajoutées pour SIMULER ([] = le script simule déjà par défaut)
 #     "reel"         : les options ajoutées pour AGIR POUR DE VRAI
 #     "confirmation" : le message affiché avant d'agir pour de vrai
@@ -126,7 +129,7 @@ LANCEMENT = {
                         "Le script te demandera encore de taper OUI dans la zone Résultat.",
     },
     "outils/gagner_de_la_place/ranger.py": {
-        "mode": "dossier",
+        "mode": "chercher",
         "simulation": [],
         "reel": ["--appliquer"],
         "confirmation": "Les fichiers du dossier seront DÉPLACÉS dans des sous-dossiers "
@@ -180,6 +183,7 @@ class Sortie(tk.Frame):
         self.processus = None             # le script en train de tourner (None = aucun)
         self.arret_demande = False        # vrai si TU as cliqué sur "Arrêter"
         self.reste_cr = ""                # un détail technique pour les lignes qui se réécrivent
+        self.quand_fini = None            # une fonction à appeler quand le script se termine bien
         # La "boîte aux lettres" : le fil de lecture y dépose le texte du script,
         # et la fenêtre vient le chercher toutes les 100 ms (voir "surveiller").
         self.messages = queue.Queue()
@@ -282,14 +286,17 @@ class Sortie(tk.Frame):
         if en_cours:
             self.champ.focus_set()                 # le curseur se place dans la zone de réponse
 
-    def executer(self, commande, titre):
-        """Lance 'commande' (une liste) et affiche son texte ici. 'titre' est rappelé en haut."""
+    def executer(self, commande, titre, quand_fini=None):
+        """Lance 'commande' (une liste) et affiche son texte ici. 'titre' est rappelé en haut.
+        'quand_fini' (facultatif) : une fonction appelée avec le code de sortie quand le script
+        se termine (sauf si tu cliques sur "Arrêter").
+        Renvoie True si le script a démarré, False sinon."""
         # Un seul script à la fois dans cette boîte, sinon leurs textes se mélangeraient.
         if self.processus is not None:
             messagebox.showinfo("Déjà en cours",
                                 "Un outil tourne déjà ici.\nAttends qu'il se termine, "
                                 "ou clique sur « Arrêter ».")
-            return
+            return False
 
         # Deux réglages pour que le texte arrive tout de suite et avec les accents :
         #   PYTHONUNBUFFERED : le script envoie son texte immédiatement (sans le garder en réserve)
@@ -308,8 +315,9 @@ class Sortie(tk.Frame):
                 bufsize=0, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         except OSError as erreur:
             messagebox.showerror("Lancement impossible", str(erreur))
-            return
+            return False
 
+        self.quand_fini = quand_fini
         self.arret_demande = False
         self.effacer()
         self.ecrire("▶ " + titre + "\n\n")
@@ -320,6 +328,7 @@ class Sortie(tk.Frame):
         threading.Thread(target=self.lire_sortie, args=(self.processus,), daemon=True).start()
         # Et la fenêtre ira chercher ce texte toutes les 100 ms.
         self.after(100, self.surveiller)
+        return True
 
     def lire_sortie(self, processus):
         """Tourne dans un FIL à part. Il NE TOUCHE PAS à la fenêtre : il dépose juste le texte
@@ -364,6 +373,10 @@ class Sortie(tk.Frame):
             pass
         self.processus = None
         self.definir_etat(False)
+        # Un outil peut demander à être prévenu quand son script se termine (ex : le bouton "Appliquer").
+        rappel, self.quand_fini = self.quand_fini, None
+        if rappel is not None and not self.arret_demande:
+            rappel(code)
 
     def envoyer(self):
         """Envoie au script ce que tu as tapé dans la zone "Réponse" (comme taper dans PowerShell)."""
@@ -723,6 +736,7 @@ class Application:
         self.fenetre = fenetre
         self.sorties = []                 # toutes les boîtes "Résultat" (une par page d'outil)
         self.page_caches = None           # la page des caches, si elle existe
+        self.dossiers = {}                # pour les outils "chercher" : le dernier dossier cherché
 
         # ----- Réglages de la fenêtre -----
         fenetre.title("Boîte à outils")
@@ -881,6 +895,21 @@ class Application:
                       fg="white", relief="flat", cursor="hand2", padx=14,
                       command=lambda: self.lancer_avec_dossier(fichier, sortie, reel=False)
                       ).pack(side="right", padx=15, ipady=4)
+        elif reglage["mode"] == "chercher":
+            # Deux boutons : "Chercher" montre ce qui serait fait ; "Appliquer" le fait vraiment.
+            # "Appliquer" est GRISÉ (state="disabled") tant qu'une recherche n'a pas réussi.
+            bouton_appliquer = tk.Button(ligne, text="Appliquer", font=("Arial", 10, "bold"),
+                                         bg=ROUGE, fg="white", relief="flat", cursor="hand2",
+                                         padx=14, state="disabled")
+            bouton_appliquer.pack(side="right", padx=(6, 15), ipady=4)
+            # configure(command=...) donne sa fonction au bouton APRÈS sa création :
+            # "Chercher" n'existait pas encore quand on a créé "Appliquer".
+            bouton_appliquer.config(
+                command=lambda: self.appliquer(fichier, sortie, bouton_appliquer))
+            tk.Button(ligne, text="Chercher", font=("Arial", 10, "bold"), bg=BLEU, fg="white",
+                      relief="flat", cursor="hand2", padx=14,
+                      command=lambda: self.chercher(fichier, sortie, bouton_appliquer)
+                      ).pack(side="right", padx=(6, 0), ipady=4)
         else:
             # Un seul bouton "Ouvrir".
             # Ici le lambda n'a pas besoin de "fichier=fichier" : il n'y a qu'un seul bouton par appel
@@ -910,13 +939,14 @@ class Application:
     # ------------------------------------------------------------
     # Lancer un script
     # ------------------------------------------------------------
-    def lancer(self, fichier, sortie, arguments=()):
+    def lancer(self, fichier, sortie, arguments=(), quand_fini=None):
         """Lance le script 'fichier' (chemin relatif), avec des 'arguments' facultatifs.
-        Son texte s'affiche dans la boîte 'sortie' de la page."""
+        Son texte s'affiche dans la boîte 'sortie' de la page.
+        Renvoie True si le script a démarré, False sinon."""
         script = RACINE / fichier                      # le "/" assemble les morceaux d'un chemin
         if not script.is_file():
             messagebox.showerror("Script introuvable", f"Je ne trouve pas ce fichier :\n{script}")
-            return
+            return False
 
         reglage = LANCEMENT.get(fichier, {"mode": "console"})
         # La commande, sous forme de liste : [le Python utilisé, le script, ses options...]
@@ -933,25 +963,66 @@ class Application:
                 subprocess.Popen(commande, cwd=RACINE)
             except OSError as erreur:
                 messagebox.showerror("Lancement impossible", str(erreur))
-            return
+                return False
+            return True
 
         # Pour tous les autres : le texte du script s'affiche dans la boîte "Résultat".
         # list2cmdline met les guillemets autour des chemins qui contiennent des espaces.
-        sortie.executer(commande, subprocess.list2cmdline([script.name, *arguments]))
+        return sortie.executer(commande, subprocess.list2cmdline([script.name, *arguments]),
+                               quand_fini)
 
-    def lancer_avec_dossier(self, fichier, sortie, reel):
-        """Demande un dossier, puis lance le script en simulation (reel=False) ou pour de vrai."""
-        reglage = LANCEMENT[fichier]
-
-        # La fenêtre de choix de dossier. .get(clé, valeur_de_secours) lit un réglage facultatif.
+    def demander_dossier(self, reglage):
+        """Ouvre la fenêtre de choix de dossier. Renvoie le dossier, ou None si tu annules."""
+        # .get(clé, valeur_de_secours) lit un réglage facultatif.
         options_dialogue = {"title": reglage.get("titre_dialogue", "Choisis le dossier à traiter")}
         if os.path.isdir(reglage.get("dossier_depart", "")):
             options_dialogue["initialdir"] = reglage["dossier_depart"]    # dossier ouvert au départ
         dossier = filedialog.askdirectory(**options_dialogue)    # ** "déballe" le dictionnaire en options
         if not dossier:                    # un texte vide compte pour "faux" : l'utilisateur a annulé
-            return
+            return None
         # askdirectory renvoie des "/" ; normpath remet les "\" de Windows.
-        dossier = os.path.normpath(dossier)
+        return os.path.normpath(dossier)
+
+    def chercher(self, fichier, sortie, bouton_appliquer):
+        """Étape 1 : choisis un dossier, le script montre ce qu'il ferait (sans rien changer).
+        Si ça se passe bien, le bouton "Appliquer" devient cliquable."""
+        reglage = LANCEMENT[fichier]
+        dossier = self.demander_dossier(reglage)
+        if dossier is None:
+            return
+        bouton_appliquer.config(state="disabled")      # pas d'application avant la fin de la recherche
+        self.dossiers[fichier] = dossier               # on retient le dossier pour l'étape 2
+
+        def recherche_finie(code):
+            if code == 0:                              # 0 = le script s'est bien terminé
+                bouton_appliquer.config(state="normal")
+
+        self.lancer(fichier, sortie, [dossier, *reglage.get("simulation", [])], recherche_finie)
+
+    def appliquer(self, fichier, sortie, bouton_appliquer):
+        """Étape 2 : agit pour de vrai sur le dossier de la dernière recherche."""
+        reglage = LANCEMENT[fichier]
+        dossier = self.dossiers.get(fichier)
+        if not dossier or not os.path.isdir(dossier):
+            messagebox.showerror("Dossier introuvable", "Refais d'abord une recherche.")
+            bouton_appliquer.config(state="disabled")
+            return
+        if not messagebox.askyesno(
+                "Confirmer",
+                f"Dossier :\n{dossier}\n\n{reglage['confirmation']}\n\nContinuer ?"):
+            return
+        bouton_appliquer.config(state="disabled")      # une seule application par recherche
+        # Si le script n'a pas pu démarrer, on rend le bouton cliquable.
+        if not self.lancer(fichier, sortie, [dossier, *reglage["reel"]]):
+            bouton_appliquer.config(state="normal")
+
+    def lancer_avec_dossier(self, fichier, sortie, reel):
+        """Demande un dossier, puis lance le script en simulation (reel=False) ou pour de vrai."""
+        reglage = LANCEMENT[fichier]
+
+        dossier = self.demander_dossier(reglage)
+        if dossier is None:                # tu as annulé
+            return
 
         if reel:
             # Avant d'agir pour de vrai, on demande confirmation, avec ce que ça va faire.

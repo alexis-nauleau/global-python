@@ -1,8 +1,4 @@
 """Range les fichiers d'un dossier dans des sous-dossiers selon leur extension.
-
-Usage :
-    
-    python ranger.py "C:\\Users\\Utilisateur\\Downloads" --appliquer  # déplace vraiment
 """
 
 import shutil  # sait déplacer des fichiers
@@ -36,7 +32,7 @@ def nom_libre(destination):
         return destination
     numero = 1
     while True:
-        # .stem = nom sans extension ("cv")
+        # .stem = nom sans extension ("cv"), .suffix = l'extension (".pdf")
         # On fabrique donc "cv (1).pdf", puis "cv (2).pdf"...
         essai = destination.with_name(f"{destination.stem} ({numero}){destination.suffix}")
         if not essai.exists():
@@ -64,7 +60,7 @@ def ranger(dossier, appliquer=False):
             shutil.move(str(fichier), str(cible))  # déplace le fichier
         total += 1
 
-    mode = "déplacés" if appliquer else "à déplacer (simulation, ajoute --appliquer)"
+    mode = "déplacés" if appliquer else "à déplacer "
     print(f"\n{total} fichier(s) {mode}.")
     return 0  # 0 = "tout s'est bien passé"
 
