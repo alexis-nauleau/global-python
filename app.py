@@ -1,25 +1,55 @@
 # ============================================================
 # Pour ajouter un outil : ajoute UNE ligne dans la liste PAGES ci-dessous.
-# Pour ajouter une page : ajoute un bloc {...} dans PAGES.
 # ============================================================
 import tkinter as tk
 
 PAGES = [
+    # ===== Section "Gagner de la place" =====
     {
-        "cle": "gagner",                 # un identifiant interne, pour que le code s'y retrouve
-        "menu": "Gagner de la place",    # le texte du bouton dans le menu de gauche
-        "titre": "Gagner de la place",   # le grand titre affiché en haut de la page
-        # "outils" est la liste des lignes de la page.
-        # Chaque ligne est un TUPLE de 3 éléments : (nom, description, chemin du script)
+        "cle": "caches_analyse",              # chaque "cle" doit être UNIQUE
+        "menu": "Analyser les caches",
+        "titre": "Gagner de la place",
         "outils": [
             ("Analyser les caches",
-             "Affiche les caches qui prennent de la place et leur taille (rien n'est supprimé).",
+             "Affiche les caches qui prennent de la place et leur taille .",
              "outils/gagner_de_la_place/analyser_caches.py"),
         ],
     },
     {
-        "cle": "photos",
-        "menu": "Photos",
+        "cle": "caches_nettoyage",
+        "menu": "Supprimer les caches",
+        "titre": "Gagner de la place",
+        "outils": [
+            ("Nettoyer les caches",
+             "Supprime les caches qui ont été analysés précédemment.",
+             "outils/gagner_de_la_place/nettoyeur_caches.py"),
+        ],
+    },
+    {
+        "cle": "projets",
+        "menu": "Nettoyer un projet web",
+        "titre": "Gagner de la place",
+        "outils": [
+            ("Nettoyer les projets dormants",
+             "Supprime le dossier node_modules des projets web non modifiés depuis 60 jours.",
+             "outils/gagner_de_la_place/nettoyer_projets.py"),
+        ],
+    },
+    {
+        "cle": "ranger_dossier",
+        "menu": "Ranger un dossier",
+        "titre": "Gagner de la place",
+        "outils": [
+            ("Ranger un dossier",
+             "Trie un dossier en rangeant les fichiers par extension.",
+             "outils/gagner_de_la_place/ranger.py"),
+        ],
+    },
+
+    # ===== Section "Photos" =====
+    {
+        "cle": "images",
+        "menu": "Optimiser les images",
         "titre": "Photos",
         "outils": [
             ("Optimiser les images",
@@ -27,7 +57,31 @@ PAGES = [
              "outils/photos/optimiser_images.py"),
         ],
     },
+    {
+        "cle": "photos_annee",
+        "menu": "Ranger les photos",
+        "titre": "Photos",
+        "outils": [
+            ("Ranger les photos",
+             "Trie les photos par année .",
+             "outils/photos/ranger_photos.py"),
+        ],
+    },
+    {
+        "cle": "doublons",
+        "menu": "Supprimer les doublons",
+        "titre": "Photos",
+        "outils": [
+            ("Supprimer les doublons",
+             "Supprime les fichiers dont le nom finit par (1), (2) ou (3).",
+             "outils/photos/supprimer_doublons.py"),
+        ],
+    },
 ]
+
+cles = [definition["cle"] for definition in PAGES]
+if len(cles) != len(set(cles)):
+    raise SystemExit("Erreur dans PAGES : deux pages ont la même 'cle'.")
 
 FOND = "#F4F5F7"           
 FOND_MENU = "#1F2937"       
@@ -35,7 +89,7 @@ MENU_ACTIF = "#374151"
 BLEU = "#2563EB"            
 
 # ------------------------------------------------------------
-# 4. LA CLASSE Application
+#  LA CLASSE Application
 # ------------------------------------------------------------
 
 class Application:
@@ -43,26 +97,24 @@ class Application:
     def __init__(self, fenetre):
 
         # ----- Réglages de la fenêtre -----
-        fenetre.title("Boîte à outils")      # le texte de la barre de titre
-        fenetre.geometry("900x560")          # taille de départ : largeur x hauteur, en pixels
-        fenetre.minsize(760, 440)            # taille minimale : on ne peut pas la réduire en dessous
+        fenetre.title("Boîte à outils")      
+        fenetre.geometry("900x560")          
+        fenetre.minsize(760, 440)            
 
-        # ---------- LE MENU (la colonne de gauche) ----------
+        # ---------- LE MENU  ----------
         
         # tk.Frame => "crée une boîte DANS la fenêtre (ci-dessus)".
         
         menu = tk.Frame(fenetre, bg=FOND_MENU, width=220)
 
         # pack()  C'est ce qui le rend VISIBLE :
-        #   side="left"  : colle-le sur le côté gauche
         #   fill="y"     : étire-le sur toute la hauteur 
 
         menu.pack(side="left", fill="y")
         # pack_propagate(False) dit : "garde ta largeur de 220, quoi qu'il y ait dedans".
         menu.pack_propagate(False)
 
-        # Label = un texte affiché à l'écran.
-        # font=("Arial", 13, "bold") :
+        # Label = un texte affiché à l'écran:
         # fg =  couleur du texte 
         # pady=(25, 20) (25 pixels au-dessus, 20 en dessous).
 
@@ -70,17 +122,16 @@ class Application:
                  bg=FOND_MENU, fg="white").pack(pady=(25, 20))
 
         # ---------- LA ZONE DES PAGES (à droite) ----------
-        # Une autre boîte, qui prend toute la place restante : c'est là que les pages s'afficheront.
+
         zone = tk.Frame(fenetre, bg=FOND)
         # fill="both" : étire en largeur ET en hauteur.
         # expand=True : prend tout l'espace libre qui reste.
         zone.pack(side="right", fill="both", expand=True)
 
-        # ----- On prépare deux "carnets" pour retrouver nos éléments plus tard -----
-        # Un dictionnaire VIDE : on le remplit au fur et à mesure dans la boucle ci-dessous.
-        # self.pages["photos"] donnera la page des photos, par exemple.
-        self.pages = {}            # clé de la page  ->  la page elle-même
-        self.boutons_menu = {}     # clé de la page  ->  son bouton dans le menu
+        # ----- On prépare deux "carnets" -----
+
+        self.pages = {}            
+        self.boutons_menu = {}     
 
         # ---------- ON CONSTRUIT LE MENU ET LES PAGES ----------
 
@@ -88,8 +139,6 @@ class Application:
 
             cle = definition["cle"]
 
-            # Button = un bouton cliquable. Quelques options importantes :
-            #   text           : le texte écrit dessus
             #   relief="flat"  : bouton plat, sans bordure en relief
             #   anchor="w"     : texte aligné à gauche (w = west = ouest)
             #   padx=20        : espace horizontal à l'intérieur du bouton
@@ -101,55 +150,43 @@ class Application:
                                padx=20, cursor="hand2", activebackground=MENU_ACTIF,
                                activeforeground="white",
                                # "lambda" crée une mini-fonction sans nom, sur une seule ligne.
-                               # Ici : "quand on clique, appelle self.afficher(cle)".
-                               # Le "cle=cle" est un détail IMPORTANT : il fige la valeur de
-                               # cle POUR CE bouton. Sans lui, tous les boutons afficheraient
-                               # la dernière page (le piège classique des boucles).
+                               # Le "cle=cle" est un détail IMPORTANT : il fige la valeur de cle POUR CE bouton. Sans lui, tous les boutons afficheraient la dernière page (le piège classique des boucles).
                                command=lambda cle=cle: self.afficher(cle))
 
             # fill="x" : le bouton prend toute la largeur du menu.
-            # ipady=8 : épaisseur supplémentaire À L'INTÉRIEUR du bouton (le rend plus haut).
+            # ipady=8 : épaisseur supplémentaire À L'INTÉRIEUR 
             bouton.pack(fill="x", ipady=8)
 
-            # On range le bouton dans notre carnet, pour le retrouver plus tard
-            # (afin de changer sa couleur quand on change de page).
+            # On range le bouton dans notre carnet
             self.boutons_menu[cle] = bouton
 
-            # On construit la page (voir la méthode creer_page plus bas) et on la range aussi.
             self.pages[cle] = self.creer_page(zone, definition)
 
         # Au démarrage, on affiche la première page.
-        # PAGES[0] = le premier élément de la liste (en programmation, on compte à partir de 0).
         self.afficher(PAGES[0]["cle"])
 
     # ------------------------------------------------------------
     # Construire UNE page
     # ------------------------------------------------------------
-    # "zone" : la boîte dans laquelle on met la page. "definition" : sa fiche.
+
     def creer_page(self, zone, definition):
         """Construit une page : un titre, puis une ligne par outil."""
-        # (Le texte entre triples guillemets juste au-dessus s'appelle une "docstring" :
-        #  c'est la description de la fonction, que Python garde en mémoire.)
 
         page = tk.Frame(zone, bg=FOND)
 
         # Ici on utilise place() au lieu de pack(). Il positionne l'élément à un endroit précis.
-        # x=0, y=0 : en haut à gauche. relwidth=1 / relheight=1 : 100 % de la largeur / hauteur.
-        # RÉSULTAT : toutes les pages occupent exactement la MÊME place, empilées comme des
-        # feuilles de papier les unes sur les autres. On verra celle qui est au-dessus.
+        # x=0, y=0 . relwidth=1 / relheight=1 : 100 % 
         page.place(x=0, y=0, relwidth=1, relheight=1)
 
         # Le grand titre de la page. anchor="w" : aligné à gauche. padx : marge gauche/droite.
         tk.Label(page, text=definition["titre"], font=("Arial", 20, "bold"),
                  bg=FOND).pack(anchor="w", padx=30, pady=(25, 15))
 
-        # Une boucle sur la liste "outils" de la fiche : une ligne par outil.
-        # Chaque outil est un tuple de 3 valeurs. Python permet de les "déballer" directement
-        # dans trois variables : nom, description, fichier.
+        # Une boucle sur la liste "outils" de la fiche 
+
         for nom, description, fichier in definition["outils"]:
             self.creer_ligne(page, nom, description, fichier)
 
-        # "return" renvoie un résultat à celui qui a appelé la fonction.
         # Ici on rend la page construite, pour que __init__ puisse la ranger dans self.pages.
         return page
 
@@ -236,13 +273,7 @@ def main():
     fenetre.after(500, lambda: fenetre.attributes("-topmost", False))
 
     # mainloop() garde la fenêtre OUVERTE et attend tes actions (clics, saisies...).
-    # Le programme reste bloqué sur cette ligne jusqu'à ce que tu fermes la fenêtre.
     fenetre.mainloop()
 
-
-# Cette condition est une habitude de tous les programmes Python.
-# __name__ vaut "__main__" quand on lance CE fichier directement (python app.py).
-# Si un autre fichier fait un jour "import app", ce bloc ne s'exécutera PAS,
-# ce qui évite d'ouvrir une fenêtre par accident.
 if __name__ == "__main__":
     main()
