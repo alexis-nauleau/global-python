@@ -1,1 +1,1 @@
-__pycache__/, .venv/, .vscode/, build/, dist/, *.spec
+__pycache__/, .venv/, .vscode/, build/, dist/, *.spec, *.pyc

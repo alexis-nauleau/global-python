@@ -1,11 +1,4 @@
-# ============================================================
-# ranger_photos.py : range les photos par année
-# - Avec un dossier en argument : fonctionne dans le terminal (simulation par défaut).
-# - Sans argument (double-clic sur l'exe) : choisis le dossier dans une fenêtre,
-#   regarde la simulation, puis confirme.
-# ============================================================
 
-# ---------- IMPORTS ----------
 import argparse                  # Lire les arguments écrits dans le terminal
 import re                        # Chercher un motif dans un texte (dates WhatsApp)
 import shutil                    # Déplacer des fichiers
@@ -13,10 +6,10 @@ from datetime import datetime    # Manipuler les dates
 from pathlib import Path         # Manipuler les chemins de fichiers
 from PIL import Image            # Lire les images et leurs informations EXIF
 
-# Extensions des fichiers que l'on souhaite ranger
+
 EXTENSIONS = {".jpg", ".jpeg", ".png", ".mp4", ".mov",".heic"}
 
-# Les deux façons dont WhatsApp écrit la date dans le nom d'un fichier
+
 MOTIFS_WHATSAPP = [
     re.compile(r"-(\d{4})(\d{2})(\d{2})-WA\d+"),                      # IMG-20200314-WA0012.jpg
     re.compile(r"WhatsApp (?:Image|Video) (\d{4})-(\d{2})-(\d{2})"),  # WhatsApp Image 2020-03-14 at ...
@@ -34,7 +27,7 @@ def date_prise_de_vue(chemin):
             if date:
                 return datetime.strptime(str(date).strip(), "%Y:%m:%d %H:%M:%S")
     except Exception:
-        pass    # vidéo, image abîmée, date mal formée... : on continue sans date
+        pass    # vidéo, image abîmée, date mal formée.
     return None
 
 
