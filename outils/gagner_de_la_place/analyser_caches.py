@@ -4,14 +4,14 @@ import argparse
 import os
 from pathlib import Path
 
-# Dossiers qu'on peut reconstruire à tout moment dans un projet
+
 NOMS_JETABLES = {"__pycache__", "node_modules", ".venv", "target", ".next", "dist"}
 
-# Noms de dossiers qui sont (presque toujours) des caches reconstruits automatiquement
+
 NOMS_CACHE = {"cache", "code cache", "gpucache", "dawncache", "grshadercache",
               "shadercache", "d3dscache", "npm-cache", "crashdumps"}
 
-# On n'affiche pas les dossiers plus petits que 1 Mo (du bruit)
+
 SEUIL = 1024 * 1024
 
 
@@ -68,7 +68,7 @@ def scanner(chemin, profondeur, resultats, ignores, dans_jetable=False):
                         if profondeur in (1, 2):
                             resultats[profondeur].append((entree.path, taille))
                 except OSError:
-                    pass                            # fichier ou dossier inaccessible : on passe
+                    pass                            
     except OSError:
         pass                                        # dossier illisible (droits) : on passe
     return total

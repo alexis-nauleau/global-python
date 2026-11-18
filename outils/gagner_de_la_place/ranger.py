@@ -1,7 +1,7 @@
 """Range les fichiers d'un dossier dans des sous-dossiers selon leur extension.
 
 Usage :
-    python ranger.py "C:\\Users\\Utilisateur\\Downloads"            # simulation (ne déplace rien)
+    
     python ranger.py "C:\\Users\\Utilisateur\\Downloads" --appliquer  # déplace vraiment
 """
 
@@ -21,8 +21,7 @@ CATEGORIES = {
 
 def categorie(fichier):
     """Renvoie le nom du sous-dossier pour ce fichier ('Autres' si inconnu)."""
-    # .suffix donne l'extension (".PDF"), .lower() la met en minuscules (".pdf"),
-    # pour que "photo.JPG" et "photo.jpg" soient traités pareil.
+    # .suffix donne l'extension (".PDF").
     extension = fichier.suffix.lower()
     # .items() donne chaque paire (nom, extensions) du dictionnaire, une par une.
     for nom, extensions in CATEGORIES.items():
@@ -37,7 +36,7 @@ def nom_libre(destination):
         return destination
     numero = 1
     while True:
-        # .stem = nom sans extension ("cv"), .suffix = l'extension (".pdf")
+        # .stem = nom sans extension ("cv")
         # On fabrique donc "cv (1).pdf", puis "cv (2).pdf"...
         essai = destination.with_name(f"{destination.stem} ({numero}){destination.suffix}")
         if not essai.exists():

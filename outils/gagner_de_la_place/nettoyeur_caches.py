@@ -10,18 +10,12 @@ from tkinter import messagebox
 
 LOCAL = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
 ROAMING = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
-PROJETS = Path(r"F:\Projets")          # À adapter : le dossier où sont tes projets
+PROJETS = Path(r"F:\Projets")          # À adapter 
 
-# Noms de dossiers reconnus. ATTENTION : chaque nom n'est cherché que dans SA zone (voir ZONES).
 NOMS_CACHE = {"cache", "code cache", "gpucache", "dawncache", "grshadercache",
               "shadercache", "d3dscache", "npm-cache", "crashdumps"}
 NOMS_JETABLES = {"__pycache__", "node_modules", ".venv", "target", ".next", "dist"}
 
-# Les seules zones analysées ET autorisées à la suppression.
-#  - Dans AppData : on cherche des CACHES (jamais node_modules, dist... qui pourraient
-#    faire partie d'une application installée).
-#  - Dans tes projets : on cherche des dossiers RECONSTRUCTIBLES (jamais "cache", qui peut
-#    être du vrai code source).
 ZONES = [
     {"nom": "Local", "racine": LOCAL, "noms": NOMS_CACHE, "categorie": "cache",
      "ignores": [LOCAL / "Temp", LOCAL / "Programs", LOCAL / "Packages"]},
@@ -70,7 +64,7 @@ def taille_dossier(chemin):
             try:
                 total += os.path.getsize(os.path.join(racine, nom))
             except OSError:
-                pass  # fichier verrouillé ou disparu : on l'ignore
+                pass  
     return total
 
 
