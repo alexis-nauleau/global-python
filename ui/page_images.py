@@ -14,7 +14,7 @@ from tkinter import filedialog, messagebox, ttk      # choix de photos, messages
 
 from outils.photos import images                     # la logique (aucune fenêtre dedans)
 from outils.photos.formats import FORMATS            # les dimensions des réseaux (à modifier dans formats.py)
-from style import BLEU, FOND, GRIS, ROUGE
+from ui.style import BLEU, FOND, GRIS, ROUGE
 
 
 class PageImages(tk.Frame):
