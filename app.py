@@ -1,19 +1,13 @@
-# ============================================================
 
-#
-# Ce fichier ne contient que le menu et le lancement des scripts. Le reste est dans :
-#   style.py        : les couleurs
-#   sortie.py       : la boîte "Résultat" (texte d'un script)
-#   page_caches.py  : la page "Analyser puis supprimer les caches"
-#   page_images.py  : la page "Optimiser les images"
+# Ce fichier ne contient que le menu et le lancement des scripts. 
 
-# ============================================================
 import os                         # pour nettoyer les chemins de dossiers
 import subprocess                 # pour LANCER un autre programme (nos scripts)
 import sys                        # sys.executable = le Python qui fait tourner CE programme
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox      # choix de dossier + petites fenêtres de message
+from ui.page_doublons import PageDoublons          
 
 from ui.page_caches import PageCaches              
 from ui.page_images import PageImages             
@@ -66,15 +60,11 @@ PAGES = [
              "outils/photos/ranger_photos.py"),
         ],
     },
-    {
+       {
         "cle": "doublons",
         "menu": "Supprimer les doublons",
         "titre": "Photos",
-        "outils": [
-            ("Supprimer les doublons",
-             "Supprime les fichiers dont le nom finit par (1), (2) ou (3).",
-             "outils/photos/supprimer_doublons.py"),
-        ],
+        "page": "doublons",
     },
 ]
 
@@ -128,6 +118,7 @@ class Application:
         self.page_caches = None           # la page des caches, si elle existe
         self.page_images = None           # la page des images, si elle existe
         self.dossiers = {}                # pour les outils "chercher" : le dernier dossier cherché
+        self.page_doublons = None         # la page des doublons, si elle existe
 
         # ----- Réglages de la fenêtre -----
         fenetre.title("Boîte à outils")
@@ -215,11 +206,16 @@ class Application:
         if definition.get("page") == "images":
             self.page_images = PageImages(zone, definition["titre"])
             return self.page_images
+        if definition.get("page") == "doublons":
+            self.page_doublons = PageDoublons(zone, definition["titre"])
+            return self.page_doublons
 
         page = tk.Frame(zone, bg=FOND)
 
-        # Il positionne l'élément à un endroit précis.
-        
+        # Ici on utilise place() au lieu de pack(). Il positionne l'élément à un endroit précis.
+        # x=0, y=0 . relwidth=1 / relheight=1 : 100 %
+        page.place(x=0, y=0, relwidth=1, relheight=1)
+
         page.place(x=0, y=0, relwidth=1, relheight=1)
 
         # Le grand titre de la page. anchor="w" : aligné à gauche. padx : marge gauche/droite.
@@ -436,7 +432,7 @@ class Application:
         for sortie in self.sorties:
             if sortie.processus is not None:
                 sortie.processus.terminate()
-        for page in (self.page_caches, self.page_images):
+        for page in (self.page_caches, self.page_images, self.page_doublons):
             if page is not None:
                 page.arret.set()                   # arrête l'analyse / la suppression / l'optimisation en cours
         self.fenetre.destroy()
@@ -462,7 +458,7 @@ def main():
     # sinon la fenêtre resterait devant tout, tout le temps.
     fenetre.after(500, lambda: fenetre.attributes("-topmost", False))
 
-    # mainloop() garde la fenêtre OUVERTE et attend tes actions (clics, saisies...).
+    # mainloop() garde la fenêtre OUVERTE
     fenetre.mainloop()
 
 if __name__ == "__main__":
