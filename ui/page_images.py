@@ -1,19 +1,12 @@
-# ============================================================
-# page_images.py : la page "Optimiser les images".
-# Deux blocs :
-#   - "Optimiser les images"                : réduit le poids (WebP), pour un site web
-#   - "Optimiser pour les réseaux sociaux"  : taille exacte d'un réseau (JPEG), au choix dans une liste
-# Dans les deux cas : tu choisis des photos, tu SIMULES (rien n'est écrit), puis tu APPLIQUES.
-# La logique est dans outils/photos/images.py : ici, on ne s'occupe que de l'écran.
-# ============================================================
+
 import os                         # os.startfile : ouvrir un dossier dans l'Explorateur
 import queue                      # une "boîte aux lettres" pour passer des messages entre deux fils
 import threading                  # pour travailler en arrière-plan SANS bloquer la fenêtre
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk      # choix de photos, messages, tableau
 
-from outils.photos import images                     # la logique (aucune fenêtre dedans)
-from outils.photos.formats import FORMATS            # les dimensions des réseaux (à modifier dans formats.py)
+from outils.photos import images                     # la logique 
+from outils.photos.formats import FORMATS            # les dimensions 
 from ui.style import BLEU, FOND, GRIS, ROUGE
 
 

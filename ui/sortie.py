@@ -1,6 +1,5 @@
 # ============================================================
 # sortie.py : la boîte "Résultat" (texte d'un script + zone de réponse).
-# Elle lance un script en arrière-plan et en affiche le texte en direct, sous la ligne de l'outil.
 # ============================================================
 import codecs                     # pour transformer les octets reçus d'un script en texte
 import os                         # os.environ : les variables de l'ordinateur
@@ -39,29 +38,24 @@ class Sortie(tk.Frame):
         tk.Label(entete, text="Résultat", font=("Arial", 12, "bold"),
                  bg=FOND).pack(side="left")
 
-        # Ce petit texte indiquera "En cours..." pendant qu'un script tourne.
+        
         self.etat = tk.Label(entete, text="", font=("Arial", 9), fg="#6B7280", bg=FOND)
         self.etat.pack(side="left", padx=10)
 
         tk.Button(entete, text="Effacer", font=("Arial", 9), relief="flat", bg=GRIS,
                   cursor="hand2", padx=10, command=self.effacer).pack(side="right")
-        # state="disabled" : bouton grisé, impossible de cliquer (tant qu'aucun script ne tourne).
         self.bouton_arreter = tk.Button(entete, text="Arrêter", font=("Arial", 9), relief="flat",
                                         bg=GRIS, cursor="hand2", padx=10,
                                         state="disabled", command=self.arreter)
         self.bouton_arreter.pack(side="right", padx=(0, 6))
 
-        # --- Le texte lui-même, avec une barre de défilement à droite ---
+        # ---  barre de défilement ---
         corps = tk.Frame(self)
         corps.pack(fill="x")
 
         barre = tk.Scrollbar(corps)
         barre.pack(side="right", fill="y")
 
-        # tk.Text = une zone de texte de plusieurs lignes.
-        #   height=12 : 12 lignes visibles. font Consolas : police "machine à écrire".
-        #   wrap="word" : les longues lignes passent à la ligne sans couper un mot.
-        #   state="disabled" : tu ne peux pas écrire dedans à la main (seul le programme le fait).
         #   yscrollcommand : relie la zone à la barre de défilement.
         self.texte = tk.Text(corps, height=12, bg=FOND_SORTIE, fg=TEXTE_SORTIE,
                              font=("Consolas", 10), wrap="word", relief="flat",
@@ -69,9 +63,9 @@ class Sortie(tk.Frame):
         self.texte.pack(side="left", fill="x", expand=True)
         barre.config(command=self.texte.yview)
 
-        # --- La ligne du bas : la zone de réponse (pour les scripts qui posent une question) ---
+        # --- La ligne du bas :  ---
         saisie = tk.Frame(self, bg=FOND)
-        if avec_reponse:                           # cachée (jamais rangée avec pack) si le script ne pose aucune question
+        if avec_reponse:                          
             saisie.pack(fill="x", pady=(6, 0))
 
         tk.Label(saisie, text="Réponse :", font=("Arial", 9), bg=FOND).pack(side="left")
@@ -79,7 +73,7 @@ class Sortie(tk.Frame):
         # tk.Entry = une zone de saisie d'UNE ligne.
         self.champ = tk.Entry(saisie, font=("Consolas", 10), state="disabled")
         self.champ.pack(side="left", fill="x", expand=True, padx=6)
-        # <Return> = la touche Entrée : elle fait la même chose que le bouton "Envoyer".
+        # <Return> = la touche Entrée  fait la même chose que le bouton Envoye.
         self.champ.bind("<Return>", lambda evenement: self.envoyer())
 
         self.bouton_envoyer = tk.Button(saisie, text="Envoyer", font=("Arial", 9), relief="flat",
@@ -87,21 +81,18 @@ class Sortie(tk.Frame):
                                         state="disabled", command=self.envoyer)
         self.bouton_envoyer.pack(side="right")
 
-        # Un petit message au départ.
         self.ecrire("Les résultats s'afficheront ici.\n")
 
     def ecrire(self, texte):
         """Ajoute du texte à la fin de la boîte et fait défiler vers le bas."""
 
-        # Certains scripts écrivent "\r" pour RÉÉCRIRE la même ligne (ex : "12000 dossiers analysés...").
-        # Si le morceau de texte se termine par "\r", on le garde de côté : le "\n" qui va avec
-        # arrive peut-être dans le morceau suivant.
+
         texte = self.reste_cr + texte
         self.reste_cr = ""
         if texte.endswith("\r"):
             self.reste_cr = "\r"
             texte = texte[:-1]
-        texte = texte.replace("\r\n", "\n")        # "\r\n" = simple retour à la ligne Windows
+        texte = texte.replace("\r\n", "\n")        # "\r\n" = simple retour à la ligne 
 
         # Une zone "disabled" refuse qu'on y écrive : on la débloque le temps d'écrire.
         self.texte.config(state="normal")
@@ -117,7 +108,7 @@ class Sortie(tk.Frame):
     def effacer(self):
         """Vide la boîte."""
         self.texte.config(state="normal")
-        self.texte.delete("1.0", "end")            # "1.0" = ligne 1, caractère 0 : le tout début
+        self.texte.delete("1.0", "end")            # "1.0" = ligne 1, caractère 0 
         self.texte.config(state="disabled")
         self.reste_cr = ""
 
@@ -136,24 +127,22 @@ class Sortie(tk.Frame):
         'quand_fini' (facultatif) : une fonction appelée avec le code de sortie quand le script
         se termine (sauf si tu cliques sur "Arrêter").
         Renvoie True si le script a démarré, False sinon."""
-        # Un seul script à la fois dans cette boîte, sinon leurs textes se mélangeraient.
+        # Un seul script à la fois 
         if self.processus is not None:
             messagebox.showinfo("Déjà en cours",
                                 "Un outil tourne déjà ici.\nAttends qu'il se termine, "
                                 "ou clique sur « Arrêter ».")
             return False
 
-        # Deux réglages pour que le texte arrive tout de suite et avec les accents :
         #   PYTHONUNBUFFERED : le script envoie son texte immédiatement (sans le garder en réserve)
         #   PYTHONIOENCODING : le script écrit en UTF-8, comme on le lit ici
         environnement = dict(os.environ, PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8")
 
         try:
-            # stdout=PIPE : on RÉCUPÈRE ce que le script écrit (au lieu de l'afficher dans PowerShell).
+            # stdout=PIPE : on RÉCUPÈRE ce que le script écrit .
             # stderr=STDOUT : les messages d'erreur arrivent au même endroit.
             # stdin=PIPE : on pourra lui ENVOYER nos réponses (ex : taper OUI).
-            # CREATE_NO_WINDOW : aucune fenêtre noire ne s'ouvre (n'existe que sous Windows,
-            # d'où le getattr : "0" = rien, ailleurs).
+            # CREATE_NO_WINDOW : aucune fenêtre noire ne s'ouvre (
             self.processus = subprocess.Popen(
                 commande, cwd=self.dossier_travail, env=environnement,
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
