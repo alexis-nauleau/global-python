@@ -9,3 +9,4 @@ ORANGE = "#D29922"              # "Partiel"
 GRIS = "#E5E7EB"                # boutons secondaires
 FOND_SORTIE = "#111827"         # fond de la boîte "Résultat" (sombre, comme un terminal)
 TEXTE_SORTIE = "#E5E7EB"        # couleur du texte dans la boîte "Résultat"
+TEXTE_DISCRET = "#6B7280"       # gris moyen : descriptions, messages d'état

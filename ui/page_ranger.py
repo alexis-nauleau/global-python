@@ -1,16 +1,14 @@
 # ============================================================
 # page_ranger.py : la page "Ranger un dossier".
-# Tu cliques sur "Chercher" : un tableau montre où chaque fichier irait, sans rien déplacer.
-# Puis "Appliquer" déplace les fichiers, et "Annuler le rangement" les remet à leur place.
-# La logique est dans outils/gagner_de_la_place/rangement.py : ici, on ne s'occupe que de l'écran.
 # ============================================================
-import os                         # os.path : vérifier qu'un dossier existe, os.startfile : l'Explorateur
-import queue                      # une "boîte aux lettres" pour passer des messages entre deux fils
-import threading                  # pour travailler en arrière-plan SANS bloquer la fenêtre
+import os                        
+import queue                      
+import threading                  
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk      # choix de dossier, messages, tableaux
+from tkinter import filedialog, messagebox, ttk      
 
-from outils.gagner_de_la_place import rangement      # la logique (aucune fenêtre dedans)
+from outils.gagner_de_la_place import rangement      
+from ui.composants import barre_du_bas, bouton, carte_outil, ligne_statut, tableau, titre_page
 from ui.style import BLEU, FOND, GRIS, ROUGE, VERT
 
 
@@ -51,20 +49,10 @@ class PageRanger(tk.Frame):
         self.arret = threading.Event()    # l'interrupteur "Arrêter" (lu par le fil de travail)
         self.messages = queue.Queue()     # la boîte aux lettres du fil de travail vers la fenêtre
 
-        tk.Label(self, text=titre, font=("Arial", 20, "bold"),
-                 bg=FOND).pack(anchor="w", padx=30, pady=(25, 15))
+        titre_page(self, titre)
 
         # ----- La ligne de l'outil (la boîte blanche) -----
-        ligne = tk.Frame(self, bg="white", highlightbackground="#E5E7EB", highlightthickness=1)
-        ligne.pack(fill="x", padx=30, pady=6)
-
-        textes = tk.Frame(ligne, bg="white")
-        textes.pack(side="left", fill="x", expand=True, padx=15, pady=12)
-        tk.Label(textes, text=self.NOM_OUTIL, font=("Arial", 12, "bold"), bg="white",
-                 anchor="w").pack(fill="x")
-        tk.Label(textes, text=self.DESCRIPTION,
-                 font=("Arial", 9), fg="#6B7280", bg="white", anchor="w", justify="left",
-                 wraplength=420).pack(fill="x")
+        ligne, textes = carte_outil(self, self.NOM_OUTIL, self.DESCRIPTION)
         # La case à cocher : un réglage de l'outil (son texte et sa valeur de départ changent selon la page).
         self.var_option = tk.BooleanVar(value=self.CASE_PAR_DEFAUT)
         tk.Checkbutton(textes, text=self.TEXTE_CASE,
@@ -75,72 +63,45 @@ class PageRanger(tk.Frame):
         self.var_option.trace_add("write", lambda *arguments: self.invalider())
 
         # Le premier élément placé avec side="right" est celui tout à droite.
-        self.bouton_appliquer = tk.Button(ligne, text="Appliquer", font=("Arial", 10, "bold"),
-                                          bg=ROUGE, fg="white", relief="flat", cursor="hand2",
-                                          padx=14, state="disabled", command=self.appliquer)
+        self.bouton_appliquer = bouton(ligne, "Appliquer", ROUGE, self.appliquer, state="disabled")
         self.bouton_appliquer.pack(side="right", padx=(6, 15), ipady=4)
-        self.bouton_chercher = tk.Button(ligne, text="Chercher", font=("Arial", 10, "bold"),
-                                         bg=BLEU, fg="white", relief="flat", cursor="hand2",
-                                         padx=14, command=self.choisir_et_chercher)
+        self.bouton_chercher = bouton(ligne, "Chercher", BLEU, self.choisir_et_chercher)
         self.bouton_chercher.pack(side="right", padx=(6, 0), ipady=4)
 
-        # wraplength : un texte trop long passe à la ligne au lieu d'être coupé.
-        self.statut = tk.Label(self, text="Clique sur « Chercher » pour commencer.",
-                               font=("Arial", 9), fg="#6B7280", bg=FOND, anchor="w",
-                               justify="left", wraplength=600)
-        self.statut.pack(fill="x", padx=32, pady=(2, 0))
+        self.statut = ligne_statut(self, "Clique sur « Chercher » pour commencer.")
 
         # ----- La barre du bas (rangée AVANT le tableau : elle reste visible même si la fenêtre rétrécit) -----
-        bas = tk.Frame(self, bg=FOND)
-        bas.pack(side="bottom", fill="x", padx=30, pady=(8, 20))
+        bas = barre_du_bas(self)
 
         self.label_totaux = tk.Label(bas, text="", font=("Arial", 10, "bold"), bg=FOND)
         self.label_totaux.pack(side="left")
 
-        self.bouton_arreter = tk.Button(bas, text="Arrêter", font=("Arial", 10), bg=GRIS,
-                                        relief="flat", cursor="hand2", padx=10, state="disabled",
-                                        command=self.arret.set)
+        self.bouton_arreter = bouton(bas, "Arrêter", GRIS, self.arret.set, gras=False, padx=10,
+                                     state="disabled")
         self.bouton_arreter.pack(side="right", ipady=4)
-        self.bouton_annuler = tk.Button(bas, text="Annuler le rangement", font=("Arial", 10, "bold"),
-                                        bg=GRIS, relief="flat", cursor="hand2", padx=10,
-                                        state="disabled", command=self.annuler)
+        self.bouton_annuler = bouton(bas, "Annuler le rangement", GRIS, self.annuler, padx=10,
+                                     state="disabled")
         self.bouton_annuler.pack(side="right", padx=6, ipady=4)
-        self.bouton_ouvrir = tk.Button(bas, text="Ouvrir le dossier", font=("Arial", 10), bg=GRIS,
-                                       relief="flat", cursor="hand2", padx=10, state="disabled",
-                                       command=self.ouvrir_dossier)
+        self.bouton_ouvrir = bouton(bas, "Ouvrir le dossier", GRIS, self.ouvrir_dossier,
+                                    gras=False, padx=10, state="disabled")
         self.bouton_ouvrir.pack(side="right", ipady=4)
 
         # ----- Les résultats : deux onglets, chacun avec un tableau -----
-        ttk.Style(self).configure("Treeview", rowheight=24)
         self.onglets = ttk.Notebook(self)
         self.onglets.pack(fill="both", expand=True, padx=30, pady=(8, 0))
 
-        cadre1, self.tableau = self.creer_tableau(self.COLONNES)
+        cadre1, self.tableau = tableau(self.onglets, self.COLONNES)
         self.onglets.add(cadre1, text=self.TITRE_ONGLET)
         self.tableau.tag_configure("fait", foreground=VERT)
         self.tableau.tag_configure("refuse", foreground=ROUGE)
         self.tableau.tag_configure("annule", foreground="#6B7280")
 
-        cadre2, self.tableau_laisses = self.creer_tableau(
+        cadre2, self.tableau_laisses = tableau(
+            self.onglets,
             [("fichier", "Fichier", 280, "w", False), ("raison", "Pourquoi on n'y touche pas", 300, "w", True)])
         self.onglets.add(cadre2, text="Laissés en place")
 
         self.maj_boutons()
-
-    def creer_tableau(self, colonnes):
-        """Fabrique un tableau (ttk.Treeview) avec une barre de défilement. Renvoie (cadre, tableau).
-        Chaque colonne = (identifiant, titre, largeur, alignement, s'étire ?)."""
-        cadre = tk.Frame(self.onglets)
-        arbre = ttk.Treeview(cadre, columns=[c[0] for c in colonnes], show="headings",
-                             selectmode="browse")
-        for identifiant, titre, largeur, alignement, s_etire in colonnes:
-            arbre.heading(identifiant, text=titre)
-            arbre.column(identifiant, width=largeur, anchor=alignement, stretch=s_etire)
-        barre = ttk.Scrollbar(cadre, orient="vertical", command=arbre.yview)
-        arbre.configure(yscrollcommand=barre.set)
-        barre.pack(side="right", fill="y")
-        arbre.pack(side="left", fill="both", expand=True)
-        return cadre, arbre
 
     # ------------------------------------------------------------
     # Les réglages
