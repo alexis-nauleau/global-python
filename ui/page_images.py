@@ -137,7 +137,7 @@ class PageImages(tk.Frame):
                               fg="white", relief="flat", cursor="hand2", padx=14,
                               state="disabled", command=lambda: self.appliquer(mode))
         appliquer.pack(side="right", padx=(6, 15), ipady=4)
-        simuler = tk.Button(ligne, text="Simuler", font=("Arial", 10, "bold"), bg=BLEU,
+        simuler = tk.Button(ligne, text="Chercher", font=("Arial", 10, "bold"), bg=BLEU,
                             fg="white", relief="flat", cursor="hand2", padx=14,
                             command=lambda: self.simuler(mode))
         simuler.pack(side="right", padx=(6, 0), ipady=4)
