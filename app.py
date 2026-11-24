@@ -1,18 +1,6 @@
-# ============================================================
-# app.py : la fenêtre principale de la boîte à outils.
-# Un MENU à gauche, des PAGES à droite. Chaque page contient des LIGNES (un outil = une ligne),
-# et EN DESSOUS les résultats de l'outil.
-#
-# Ce fichier ne contient que le menu et le lancement des scripts. Le reste est dans :
-#   style.py        : les couleurs
-#   sortie.py       : la boîte "Résultat" (texte d'un script)
-#   page_caches.py  : la page "Analyser puis supprimer les caches"
-#   page_images.py  : la page "Optimiser les images"
-#
-# Pour ajouter un outil :
-#   1. ajoute UNE ligne dans la liste PAGES ci-dessous ;
-#   2. si le script a besoin d'un dossier ou d'une fenêtre à lui, précise-le dans LANCEMENT.
-# ============================================================
+
+# Ce fichier ne contient que le menu et le lancement des scripts. 
+
 import os                         # pour nettoyer les chemins de dossiers
 import subprocess                 # pour LANCER un autre programme (nos scripts)
 import sys                        # sys.executable = le Python qui fait tourner CE programme
@@ -20,16 +8,19 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox      # choix de dossier + petites fenêtres de message
 
-from page_caches import PageCaches              # la page des caches
-from page_images import PageImages              # la page des images
-from sortie import Sortie                       # la boîte "Résultat"
-from style import BLEU, FOND, FOND_MENU, MENU_ACTIF, ROUGE    # les couleurs
+from ui.page_doublons import PageDoublons 
+from ui.page_ranger import PageRanger                      
+from ui.page_caches import PageCaches              
+from ui.page_images import PageImages 
+from ui.page_ranger_photos import PageRangerPhotos  
+
+from ui.sortie import Sortie  
+
+from ui.style import BLEU, FOND, FOND_MENU, MENU_ACTIF, ROUGE   
 
 PAGES = [
-    # ===== Section "Gagner de la place" =====
+
     {
-        # Cette page n'est pas une simple ligne : c'est une vraie page, construite par PageCaches
-        # (plus bas), avec un tableau de résultats et un bouton pour supprimer.
         "cle": "caches",                      # chaque "cle" doit être UNIQUE
         "menu": "Analyser puis supprimer les caches",
         "titre": "Gagner de la place",
@@ -45,45 +36,30 @@ PAGES = [
              "outils/gagner_de_la_place/nettoyer_projets.py"),
         ],
     },
-    {
-        "cle": "ranger_dossier",
-        "menu": "Ranger un dossier",
-        "titre": "Gagner de la place",
-        "outils": [
-            ("Ranger un dossier",
-             "Trie un dossier en rangeant les fichiers par extension.",
-             "outils/gagner_de_la_place/ranger.py"),
-        ],
-    },
 
-    # ===== Section "Photos" =====
     {
-        # Une vraie page, construite par PageImages (page_images.py) : tu choisis des photos,
-        # tu simules, puis tu appliques. Deux blocs : réduire (WebP) et réseaux sociaux (JPEG).
         "cle": "images",
         "menu": "Optimiser les images",
         "titre": "Photos",
         "page": "images",
     },
     {
-        "cle": "photos_annee",
-        "menu": "Ranger les photos",
-        "titre": "Photos",
-        "outils": [
-            ("Ranger les photos",
-             "Trie les photos par année.",
-             "outils/photos/ranger_photos.py"),
-        ],
+        "cle": "ranger_dossier",
+        "menu": "Ranger un dossier",
+        "titre": "Gagner de la place",
+        "page": "ranger",
     },
     {
         "cle": "doublons",
         "menu": "Supprimer les doublons",
         "titre": "Photos",
-        "outils": [
-            ("Supprimer les doublons",
-             "Supprime les fichiers dont le nom finit par (1), (2) ou (3).",
-             "outils/photos/supprimer_doublons.py"),
-        ],
+        "page": "doublons",
+    },
+        {
+        "cle": "photos_annee",
+        "menu": "Ranger les photos",
+        "titre": "Photos",
+        "page": "ranger_photos",
     },
 ]
 
@@ -91,45 +67,9 @@ cles = [definition["cle"] for definition in PAGES]
 if len(cles) != len(set(cles)):
     raise SystemExit("Erreur dans PAGES : deux pages ont la même 'cle'.")
 
-
-# ------------------------------------------------------------
-#  COMMENT LANCER CHAQUE SCRIPT
-# ------------------------------------------------------------
-# Les scripts ne se lancent pas tous de la même façon. Ce tableau le précise, script par script.
-# La clé (à gauche) est le chemin du script, EXACTEMENT comme dans PAGES.
-# (Les pages "caches" et "images" ne sont pas ici : ce sont de vraies pages, sans script lancé à part.)
-#
-#   "mode" :
-#     "fenetre" -> le script a SA PROPRE fenêtre : on le lance simplement.
-#     "console" -> le script écrit du texte : ce texte s'affiche dans la boîte "Résultat" sous la
-#                  ligne de l'outil. Si le script pose une question (ex : "o/n"), tu réponds dans
-#                  la zone "Réponse" sous la boîte, puis tu cliques sur "Envoyer" (ou Entrée).
-#     "dossier" -> le script a besoin d'un DOSSIER : l'application te le demande, puis la ligne
-#                  affiche deux boutons : "Simuler" (ne change rien) et "Appliquer" (agit pour de vrai).
-#                  Le résultat s'affiche dans la boîte "Résultat".
-#     "dossier_lecture" -> comme "dossier", mais pour un script qui ne fait que LIRE (il ne
-#                  modifie ni ne supprime rien) : un seul bouton, qui te laisse choisir le dossier.
-#     "chercher" -> en deux temps : "Chercher" (choisis le dossier, le script montre ce qu'il ferait,
-#                  sans rien changer) puis "Appliquer" (grisé tant que la recherche n'est pas
-#                  terminée) qui agit pour de vrai sur CE MÊME dossier.
-#
-#   Pour les modes "dossier" et "chercher" :
-#     "simulation"   : les options ajoutées pour SIMULER ([] = le script simule déjà par défaut)
-#     "reel"         : les options ajoutées pour AGIR POUR DE VRAI
-#     "confirmation" : le message affiché avant d'agir pour de vrai
-#
-#   Pour tous les modes (facultatif) :
-#     "reponse" : True si le script POSE DES QUESTIONS (ex : "Tape OUI"). La zone "Réponse" et le
-#                 bouton "Envoyer" apparaissent alors sous la boîte "Résultat". Sinon, ils sont cachés.
-#
-#   Pour les modes "dossier" et "dossier_lecture" (facultatifs) :
-#     "titre_dialogue" : le titre de la fenêtre de choix du dossier
-#     "dossier_depart" : le dossier ouvert au départ dans cette fenêtre
-#
-# Un script absent de ce tableau est lancé en mode "console", sans option.
 LANCEMENT = {
      "outils/gagner_de_la_place/nettoyer_projets.py": {
-        "mode": "chercher",          # "Chercher" puis "Appliquer" (grisé tant que la recherche n'est pas finie)
+        "mode": "chercher",         
         "simulation": [],
         "reel": ["--appliquer"],
         "reponse": True,             # ce script demande de taper OUI avant de supprimer
@@ -137,19 +77,10 @@ LANCEMENT = {
                         "(ton code n'est jamais touché).\n"
                         "Le script te demandera encore de taper OUI dans la zone Résultat.",
     },
-    "outils/gagner_de_la_place/ranger.py": {
-        "mode": "chercher",
-        "simulation": [],
-        "reel": ["--appliquer"],
-        "confirmation": "Les fichiers du dossier seront DÉPLACÉS dans des sous-dossiers "
-                        "(Images, Documents...).",
-    },
-    # Ce script propose déjà tout seul : choix du dossier, simulation, puis confirmation (o/n).
-    # Ses questions s'affichent dans la boîte "Résultat" : réponds dans la zone "Réponse".
-    "outils/photos/ranger_photos.py": {"mode": "console", "reponse": True},
+
+    
     "outils/photos/supprimer_doublons.py": {
         "mode": "dossier",
-        # ATTENTION : ce script SUPPRIME par défaut. Pour simuler, il faut lui ajouter --simulation.
         "simulation": ["--simulation"],
         "reel": [],
         "confirmation": "Les fichiers dont le nom finit par (1), (2) ou (3) seront "
@@ -157,7 +88,7 @@ LANCEMENT = {
     },
 }
 
-# Le dossier où se trouve app.py : c'est à partir de lui qu'on retrouve les scripts.
+# Le dossier où se trouve app.py 
 RACINE = Path(__file__).resolve().parent
 
 
@@ -169,23 +100,25 @@ class Application:
 
     def __init__(self, fenetre):
 
-        # On garde la fenêtre dans "self" (= cet objet), pour que toutes les méthodes s'en servent.
+        # On garde la fenêtre dans "self" , pour que toutes les méthodes s'en servent.
         self.fenetre = fenetre
         self.sorties = []                 # toutes les boîtes "Résultat" (une par page d'outil)
-        self.page_caches = None           # la page des caches, si elle existe
-        self.page_images = None           # la page des images, si elle existe
+        self.page_caches = None           # la page des caches
+        self.page_images = None           # la page des images
         self.dossiers = {}                # pour les outils "chercher" : le dernier dossier cherché
+        self.page_doublons = None         # la page des doublons
+        self.page_ranger = None   # la page "Ranger un dossier"
+        self.page_ranger_photos = None    # la page "Ranger les photos"
 
         # ----- Réglages de la fenêtre -----
         fenetre.title("Boîte à outils")
         fenetre.geometry("1000x700")
         fenetre.minsize(920, 620)
-        # Si tu fermes la fenêtre pendant qu'un script tourne, on l'arrête proprement.
-        fenetre.protocol("WM_DELETE_WINDOW", self.fermer)
+        fenetre.protocol("WM_DELETE_WINDOW", self.fermer)# Si tu fermes la fenêtre pendant qu'un script tourne, on l'arrête proprement.
 
         # ---------- LE MENU  ----------
 
-        # tk.Frame => "crée une boîte DANS la fenêtre (ci-dessus)".
+        # tk.Frame => "crée une boîte DANS la fenêtre".
 
         menu = tk.Frame(fenetre, bg=FOND_MENU, width=250)
 
@@ -198,7 +131,7 @@ class Application:
 
         # Label = un texte affiché à l'écran:
         # fg =  couleur du texte
-        # pady=(25, 20) (25 pixels au-dessus, 20 en dessous).
+        # pady=(25, 20) (marge 25 pixels au-dessus, 20 en dessous).
 
         tk.Label(menu, text="BOÎTE À OUTILS", font=("Arial", 13, "bold"),
                  bg=FOND_MENU, fg="white").pack(pady=(25, 20))
@@ -226,7 +159,7 @@ class Application:
             #   padx=20        : espace horizontal à l'intérieur du bouton
             #   cursor="hand2" : le curseur devient une petite main au survol
             #   activebackground / activeforeground : couleurs pendant le clic
-            #   wraplength=210 : un nom trop long passe à la ligne (justify="left" : alignée à gauche)
+            #   wraplength=210 : un nom trop long passe à la ligne 
             #   command        : la fonction à exécuter QUAND on clique
             bouton = tk.Button(menu, text=definition["menu"], font=("Arial", 11),
                                bg=FOND_MENU, fg="white", relief="flat", anchor="w",
@@ -262,6 +195,15 @@ class Application:
         if definition.get("page") == "images":
             self.page_images = PageImages(zone, definition["titre"])
             return self.page_images
+        if definition.get("page") == "doublons":
+            self.page_doublons = PageDoublons(zone, definition["titre"])
+            return self.page_doublons
+        if definition.get("page") == "ranger":
+            self.page_ranger = PageRanger(zone, definition["titre"])
+            return self.page_ranger
+        if definition.get("page") == "ranger_photos":
+            self.page_ranger_photos = PageRangerPhotos(zone, definition["titre"])
+            return self.page_ranger_photos
 
         page = tk.Frame(zone, bg=FOND)
 
@@ -269,12 +211,13 @@ class Application:
         # x=0, y=0 . relwidth=1 / relheight=1 : 100 %
         page.place(x=0, y=0, relwidth=1, relheight=1)
 
+        page.place(x=0, y=0, relwidth=1, relheight=1)
+
         # Le grand titre de la page. anchor="w" : aligné à gauche. padx : marge gauche/droite.
         tk.Label(page, text=definition["titre"], font=("Arial", 20, "bold"),
                  bg=FOND).pack(anchor="w", padx=30, pady=(25, 15))
 
-        # La boîte "Résultat" est créée ICI (pour que les boutons des lignes puissent s'en servir),
-        # mais rangée plus bas, APRÈS les lignes : elle s'affiche donc en dessous d'elles.
+        # La boîte "Résultat" est créée ICI 
         # any(...) = "vrai si AU MOINS un des outils de la page pose des questions" (réglage "reponse").
         pose_des_questions = any(LANCEMENT.get(fichier, {}).get("reponse")
                                  for _nom, _description, fichier in definition["outils"])
@@ -296,23 +239,16 @@ class Application:
     def creer_ligne(self, page, nom, description, fichier, sortie):
         """Une ligne = un outil : son nom, sa description, et ses boutons."""
 
-        # Une boîte blanche avec une fine bordure grise.
         # highlightbackground = couleur de la bordure ; highlightthickness = son épaisseur (1 pixel).
         ligne = tk.Frame(page, bg="white", highlightbackground="#E5E7EB", highlightthickness=1)
         ligne.pack(fill="x", padx=30, pady=6)
 
-        # --- La partie texte, à gauche : le nom en dessous duquel se trouve la description ---
         textes = tk.Frame(ligne, bg="white")
         # expand=True : cette boîte prend tout l'espace libre, ce qui repousse les boutons à droite.
         textes.pack(side="left", fill="x", expand=True, padx=15, pady=12)
 
-        # Le nom de l'outil, en gras.
         tk.Label(textes, text=nom, font=("Arial", 12, "bold"), bg="white",
                  anchor="w").pack(fill="x")
-
-        # La description, en plus petit et en gris.
-        #   justify="left" : si le texte passe sur plusieurs lignes, elles sont alignées à gauche.
-        #   wraplength=340 : au-delà de 340 pixels de large, le texte passe à la ligne tout seul.
         tk.Label(textes, text=description, font=("Arial", 9), fg="#6B7280", bg="white",
                  anchor="w", justify="left", wraplength=340).pack(fill="x")
 
@@ -369,15 +305,13 @@ class Application:
         """Met la page choisie au-dessus des autres et surligne son bouton dans le menu."""
 
         # tkraise() = "remonte cet élément au-dessus des autres".
-        # Comme toutes les pages sont empilées au même endroit, celle-ci devient la visible.
+       
         self.pages[cle].tkraise()
 
         # On parcourt le carnet des boutons du menu.
         # .items() donne, pour chaque entrée du dictionnaire, la paire (clé, valeur).
         for une_cle, bouton in self.boutons_menu.items():
-            # Écriture condensée : "valeur_A if condition else valeur_B"
-            # = si ce bouton est celui de la page choisie : couleur "active", sinon couleur normale.
-            # .config(...) change une option d'un élément qui existe déjà.
+            # .config(...) change une option d'un élément 
             bouton.config(bg=MENU_ACTIF if une_cle == cle else FOND_MENU)
 
     # ------------------------------------------------------------
@@ -486,7 +420,7 @@ class Application:
         for sortie in self.sorties:
             if sortie.processus is not None:
                 sortie.processus.terminate()
-        for page in (self.page_caches, self.page_images):
+        for page in (self.page_caches, self.page_images, self.page_doublons, self.page_ranger, self.page_ranger_photos):
             if page is not None:
                 page.arret.set()                   # arrête l'analyse / la suppression / l'optimisation en cours
         self.fenetre.destroy()
@@ -512,7 +446,7 @@ def main():
     # sinon la fenêtre resterait devant tout, tout le temps.
     fenetre.after(500, lambda: fenetre.attributes("-topmost", False))
 
-    # mainloop() garde la fenêtre OUVERTE et attend tes actions (clics, saisies...).
+    # mainloop() garde la fenêtre OUVERTE
     fenetre.mainloop()
 
 if __name__ == "__main__":
