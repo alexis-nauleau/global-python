@@ -1,17 +1,39 @@
-
+# ============================================================
+# page_ranger.py : la page "Ranger un dossier".
+# Tu cliques sur "Chercher" : un tableau montre où chaque fichier irait, sans rien déplacer.
+# Puis "Appliquer" déplace les fichiers, et "Annuler le rangement" les remet à leur place.
+# La logique est dans outils/gagner_de_la_place/rangement.py : ici, on ne s'occupe que de l'écran.
+# ============================================================
 import os                         # os.path : vérifier qu'un dossier existe, os.startfile : l'Explorateur
 import queue                      # une "boîte aux lettres" pour passer des messages entre deux fils
 import threading                  # pour travailler en arrière-plan SANS bloquer la fenêtre
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk      # choix de dossier, messages, tableaux
 
-from outils.gagner_de_la_place import rangement      
+from outils.gagner_de_la_place import rangement      # la logique (aucune fenêtre dedans)
 from ui.style import BLEU, FOND, GRIS, ROUGE, VERT
 
 
 class PageRanger(tk.Frame):
     """Chercher, appliquer, annuler. Le garde-fou est revérifié fichier par fichier AU MOMENT
-    de déplacer : si un fichier a changé depuis la recherche, il est refusé."""
+    de déplacer : si un fichier a changé depuis la recherche, il est refusé.
+
+    Cette page sert de BASE à d'autres pages de rangement (par exemple "Ranger les photos") :
+    elles la reprennent en changeant seulement les textes ci-dessous et les petites méthodes
+    marquées "à surcharger" (chercher_dans, valeurs, detail)."""
+
+    # ----- Ce que les pages dérivées changent (textes, colonnes) -----
+    NOM_OUTIL = "Ranger un dossier"
+    DESCRIPTION = ("Range les fichiers d'un dossier dans des sous-dossiers selon leur "
+                   "extension (Images, Documents, Archives...). Rien n'est supprimé "
+                   "ni écrasé, et tu peux annuler.")
+    TEXTE_CASE = "Mettre les fichiers inconnus dans « Autres »"
+    CASE_PAR_DEFAUT = True
+    TITRE_DIALOGUE = "Choisis le dossier à ranger"
+    TITRE_ONGLET = "À ranger"
+    # Chaque colonne = (identifiant, titre, largeur, alignement, s'étire ?)
+    COLONNES = [("fichier", "Fichier", 230, "w", False), ("taille", "Taille", 80, "e", False),
+                ("cible", "Va dans", 260, "w", True), ("etat", "État", 110, "w", False)]
 
     def __init__(self, zone, titre):
         super().__init__(zone, bg=FOND)
@@ -38,21 +60,19 @@ class PageRanger(tk.Frame):
 
         textes = tk.Frame(ligne, bg="white")
         textes.pack(side="left", fill="x", expand=True, padx=15, pady=12)
-        tk.Label(textes, text="Ranger un dossier", font=("Arial", 12, "bold"), bg="white",
+        tk.Label(textes, text=self.NOM_OUTIL, font=("Arial", 12, "bold"), bg="white",
                  anchor="w").pack(fill="x")
-        tk.Label(textes, text="Range les fichiers d'un dossier dans des sous-dossiers selon leur "
-                              "extension (Images, Documents, Archives...). Rien n'est supprimé "
-                              "ni écrasé, et tu peux annuler.",
+        tk.Label(textes, text=self.DESCRIPTION,
                  font=("Arial", 9), fg="#6B7280", bg="white", anchor="w", justify="left",
                  wraplength=420).pack(fill="x")
-        # La case à cocher : que faire des fichiers dont l'extension est inconnue ?
-        self.var_inconnus = tk.BooleanVar(value=True)
-        tk.Checkbutton(textes, text="Mettre les fichiers inconnus dans « Autres »",
-                       variable=self.var_inconnus, font=("Arial", 9), bg="white",
+        # La case à cocher : un réglage de l'outil (son texte et sa valeur de départ changent selon la page).
+        self.var_option = tk.BooleanVar(value=self.CASE_PAR_DEFAUT)
+        tk.Checkbutton(textes, text=self.TEXTE_CASE,
+                       variable=self.var_option, font=("Arial", 9), bg="white",
                        activebackground="white", anchor="w", cursor="hand2"
                        ).pack(anchor="w", pady=(4, 0))
         # trace_add("write", ...) = "appelle cette fonction dès que la valeur change".
-        self.var_inconnus.trace_add("write", lambda *arguments: self.invalider())
+        self.var_option.trace_add("write", lambda *arguments: self.invalider())
 
         # Le premier élément placé avec side="right" est celui tout à droite.
         self.bouton_appliquer = tk.Button(ligne, text="Appliquer", font=("Arial", 10, "bold"),
@@ -64,11 +84,13 @@ class PageRanger(tk.Frame):
                                          padx=14, command=self.choisir_et_chercher)
         self.bouton_chercher.pack(side="right", padx=(6, 0), ipady=4)
 
+        # wraplength : un texte trop long passe à la ligne au lieu d'être coupé.
         self.statut = tk.Label(self, text="Clique sur « Chercher » pour commencer.",
-                               font=("Arial", 9), fg="#6B7280", bg=FOND, anchor="w")
+                               font=("Arial", 9), fg="#6B7280", bg=FOND, anchor="w",
+                               justify="left", wraplength=600)
         self.statut.pack(fill="x", padx=32, pady=(2, 0))
 
-
+        # ----- La barre du bas (rangée AVANT le tableau : elle reste visible même si la fenêtre rétrécit) -----
         bas = tk.Frame(self, bg=FOND)
         bas.pack(side="bottom", fill="x", padx=30, pady=(8, 20))
 
@@ -93,10 +115,8 @@ class PageRanger(tk.Frame):
         self.onglets = ttk.Notebook(self)
         self.onglets.pack(fill="both", expand=True, padx=30, pady=(8, 0))
 
-        cadre1, self.tableau = self.creer_tableau(
-            [("fichier", "Fichier", 230, "w", False), ("taille", "Taille", 80, "e", False),
-             ("cible", "Va dans", 260, "w", True), ("etat", "État", 110, "w", False)])
-        self.onglets.add(cadre1, text="À ranger")
+        cadre1, self.tableau = self.creer_tableau(self.COLONNES)
+        self.onglets.add(cadre1, text=self.TITRE_ONGLET)
         self.tableau.tag_configure("fait", foreground=VERT)
         self.tableau.tag_configure("refuse", foreground=ROUGE)
         self.tableau.tag_configure("annule", foreground="#6B7280")
@@ -141,7 +161,7 @@ class PageRanger(tk.Frame):
         """Demande le dossier, vérifie qu'on a le droit de le ranger, puis lance la recherche."""
         if self.occupe:
             return
-        options = {"title": "Choisis le dossier à ranger"}
+        options = {"title": self.TITRE_DIALOGUE}
         if self.dernier_dossier and os.path.isdir(self.dernier_dossier):
             options["initialdir"] = self.dernier_dossier
         dossier = filedialog.askdirectory(**options)
@@ -162,32 +182,45 @@ class PageRanger(tk.Frame):
         self.prete = False
         self.tableau.delete(*self.tableau.get_children())
         self.tableau_laisses.delete(*self.tableau_laisses.get_children())
-        self.onglets.tab(0, text="À ranger")
+        self.onglets.tab(0, text=self.TITRE_ONGLET)
         self.onglets.tab(1, text="Laissés en place")
         self.arret.clear()
         self.definir_occupe(True)
         self.statut.config(text=f"Recherche dans {self.racine}...")
 
         threading.Thread(target=self.travail_recherche,
-                         args=(self.racine, self.var_inconnus.get()), daemon=True).start()
+                         args=(self.racine, self.var_option.get()), daemon=True).start()
         self.after(100, self.surveiller)
 
-    def travail_recherche(self, racine, inconnus):
+    def travail_recherche(self, racine, option):
         """Tourne dans un FIL à part : il NE TOUCHE PAS à la fenêtre, il envoie des messages."""
         try:
-            self.messages.put(("fin_recherche", rangement.chercher(racine, inconnus, self.arret)))
+            self.messages.put(("fin_recherche", self.chercher_dans(racine, option)))
         except Exception as erreur:                 # une erreur imprévue : on la montre, sans planter
             self.messages.put(("erreur", str(erreur)))
+
+    # ----- À surcharger : ce que change une page dérivée -----
+    def chercher_dans(self, racine, option):
+        """Prépare le rangement (SANS rien déplacer). 'option' = la valeur de la case à cocher.
+        Doit renvoyer le dictionnaire décrit dans rangement.chercher."""
+        return rangement.chercher(racine, option, self.arret)
+
+    def valeurs(self, element, cible, etat):
+        """Les valeurs affichées dans une ligne du tableau (dans l'ordre de COLONNES)."""
+        return (element["source"].name, rangement.lisible(element["taille"]), cible, etat)
+
+    def detail(self, resultats):
+        """Un texte ajouté au bilan de la recherche (vide par défaut)."""
+        return ""
 
     def afficher_resultats(self, resultats):
         """Remplit les deux tableaux avec le résultat de la recherche."""
         self.elements = resultats["deplacements"]
         for numero, element in enumerate(self.elements):
             # iid = le numéro de la ligne : il permet de retrouver la fiche.
-            self.tableau.insert("", "end", iid=str(numero), values=(
-                element["source"].name, rangement.lisible(element["taille"]),
-                self.nom_cible(element), ""))
-        self.onglets.tab(0, text=f"À ranger ({len(self.elements)})")
+            self.tableau.insert("", "end", iid=str(numero),
+                                values=self.valeurs(element, self.nom_cible(element), ""))
+        self.onglets.tab(0, text=f"{self.TITRE_ONGLET} ({len(self.elements)})")
         for nom, raison in resultats["laisses"]:
             self.tableau_laisses.insert("", "end", values=(nom, raison))
         self.onglets.tab(1, text=f"Laissés en place ({len(resultats['laisses'])})")
@@ -197,11 +230,12 @@ class PageRanger(tk.Frame):
             self.statut.config(text="Recherche interrompue : résultats PARTIELS, applique impossible.")
         elif self.elements:                         # une liste non vide compte pour "vrai"
             total = rangement.lisible(sum(e["taille"] for e in self.elements))
-            self.statut.config(text=f"{len(self.elements)} fichier(s) à ranger ({total}){reste}. "
+            self.statut.config(text=f"{len(self.elements)} fichier(s) à ranger ({total}){reste}."
+                                    f"{self.detail(resultats)} "
                                     "Rien n'est déplacé : clique sur « Appliquer » si ça te convient.")
             self.prete = True
         else:
-            self.statut.config(text=f"Rien à ranger dans ce dossier{reste}.")
+            self.statut.config(text=f"Rien à ranger dans ce dossier{reste}.{self.detail(resultats)}")
         self.definir_occupe(False)
 
     @staticmethod
@@ -219,8 +253,7 @@ class PageRanger(tk.Frame):
         if not messagebox.askyesno(
                 "Confirmer le rangement",
                 f"Dossier :\n{self.racine}\n\n"
-                f"{len(self.elements)} fichier(s) seront DÉPLACÉS dans des sous-dossiers "
-                "(Images, Documents...).\n"
+                f"{len(self.elements)} fichier(s) seront DÉPLACÉS dans des sous-dossiers.\n"
                 "Rien n'est supprimé ni écrasé. Tant que l'application reste ouverte, "
                 "tu peux annuler avec « Annuler le rangement ».\n\nContinuer ?"):
             return
@@ -259,8 +292,8 @@ class PageRanger(tk.Frame):
             self.journal.append({"origine": element["source"], "cible": cible_reelle,
                                  "cree": dossier_cree, "generation": self.generation,
                                  "numero": numero})
-        self.tableau.item(str(numero), tags=(etiquette,), values=(
-            element["source"].name, rangement.lisible(element["taille"]), cible, element["etat"]))
+        self.tableau.item(str(numero), tags=(etiquette,),
+                          values=self.valeurs(element, cible, element["etat"]))
         self.maj_boutons()
 
     def terminer_deplacement(self, interrompu):
@@ -315,9 +348,8 @@ class PageRanger(tk.Frame):
             if entree["generation"] == self.generation:
                 element = self.elements[entree["numero"]]
                 element["etat"] = "Annulé"
-                self.tableau.item(str(entree["numero"]), tags=("annule",), values=(
-                    element["source"].name, rangement.lisible(element["taille"]),
-                    self.nom_cible(element), "Annulé"))
+                self.tableau.item(str(entree["numero"]), tags=("annule",),
+                                  values=self.valeurs(element, self.nom_cible(element), "Annulé"))
         self.journal = [e for i, e in enumerate(self.journal) if i not in remis]
         reste = len(self.journal)
         texte = ("Annulation interrompue. " if interrompu else "Terminé. ") + \
@@ -338,7 +370,9 @@ class PageRanger(tk.Frame):
             except queue.Empty:
                 break
             genre = message[0]                      # message[0] = le 1er élément du message
-            if genre == "fin_recherche":
+            if genre == "progression":
+                self.statut.config(text=f"Recherche en cours... {message[1]} fichier(s) lus")
+            elif genre == "fin_recherche":
                 self.afficher_resultats(message[1])
                 return                              # c'est fini : on ne se reprogramme pas
             elif genre == "deplace":
