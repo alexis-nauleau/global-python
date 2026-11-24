@@ -1,7 +1,5 @@
 # ============================================================
 # page_caches.py : la page "Analyser puis supprimer les caches".
-# La logique (analyser, vérifier, vider) est dans outils/gagner_de_la_place/caches.py :
-# ici, on ne s'occupe que de l'écran.
 # ============================================================
 import os                         # os.path : vérifier qu'un dossier existe, os.startfile : l'Explorateur
 import queue                      # une "boîte aux lettres" pour passer des messages entre deux fils
@@ -11,6 +9,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk      # choix de dossier, messages, tableaux
 
 from outils.gagner_de_la_place import caches         # la logique des caches (aucune fenêtre dedans)
+from ui.composants import barre_du_bas, bouton, carte_outil, ligne_statut, tableau, titre_page
 from ui.style import BLEU, FOND, GRIS, ORANGE, ROUGE, VERT
 
 
@@ -35,66 +34,47 @@ class PageCaches(tk.Frame):
         self.arret = threading.Event()    # l'interrupteur "Arrêter" (lu par le fil de travail)
         self.messages = queue.Queue()     # la boîte aux lettres du fil de travail vers la fenêtre
 
-        # Le grand titre de la page.
-        tk.Label(self, text=titre, font=("Arial", 20, "bold"),
-                 bg=FOND).pack(anchor="w", padx=30, pady=(25, 15))
+        titre_page(self, titre)
 
         # ----- La ligne de l'outil (la boîte blanche) -----
-        ligne = tk.Frame(self, bg="white", highlightbackground="#E5E7EB", highlightthickness=1)
-        ligne.pack(fill="x", padx=30, pady=6)
-
-        textes = tk.Frame(ligne, bg="white")
-        textes.pack(side="left", fill="x", expand=True, padx=15, pady=12)
-        tk.Label(textes, text="Analyser les caches", font=("Arial", 12, "bold"), bg="white",
-                 anchor="w").pack(fill="x")
-        tk.Label(textes, text="Cherche les caches et les dossiers reconstructibles d'un dossier "
-                              "ou d'un disque. Tu choisis ensuite ce que tu supprimes.",
-                 font=("Arial", 9), fg="#6B7280", bg="white", anchor="w", justify="left",
-                 wraplength=340).pack(fill="x")
+        ligne, _textes = carte_outil(
+            self, "Analyser les caches",
+            "Cherche les caches et les dossiers reconstructibles d'un dossier "
+            "ou d'un disque. Tu choisis ensuite ce que tu supprimes.", wraplength=340)
 
         # Le premier élément placé avec side="right" est celui tout à droite.
-        self.bouton_analyser = tk.Button(ligne, text="Analyser un dossier", font=("Arial", 10, "bold"),
-                                         bg=BLEU, fg="white", relief="flat", cursor="hand2",
-                                         padx=14, command=self.choisir_et_analyser)
+        self.bouton_analyser = bouton(ligne, "Analyser un dossier", BLEU, self.choisir_et_analyser)
         self.bouton_analyser.pack(side="right", padx=(6, 15), ipady=4)
-        self.bouton_arreter = tk.Button(ligne, text="Arrêter", font=("Arial", 10, "bold"),
-                                        bg=GRIS, relief="flat", cursor="hand2", padx=14,
-                                        state="disabled", command=self.arret.set)
+        self.bouton_arreter = bouton(ligne, "Arrêter", GRIS, self.arret.set, state="disabled")
         self.bouton_arreter.pack(side="right", ipady=4)
 
         # Une ligne de texte qui dit où on en est.
-        self.statut = tk.Label(self, text="Clique sur « Analyser un dossier » pour commencer.",
-                               font=("Arial", 9), fg="#6B7280", bg=FOND, anchor="w")
-        self.statut.pack(fill="x", padx=32, pady=(2, 0))
+        self.statut = ligne_statut(self, "Clique sur « Analyser un dossier » pour commencer.")
 
         # ----- La barre du bas (rangée AVANT le tableau : elle reste visible même si la fenêtre rétrécit) -----
-        bas = tk.Frame(self, bg=FOND)
-        bas.pack(side="bottom", fill="x", padx=30, pady=(8, 20))
+        bas = barre_du_bas(self)
 
         self.label_totaux = tk.Label(bas, text="", font=("Arial", 10, "bold"), bg=FOND)
         self.label_totaux.pack(side="left")
 
-        self.bouton_supprimer = tk.Button(bas, text="Supprimer la sélection", font=("Arial", 10, "bold"),
-                                          bg=ROUGE, fg="white", relief="flat", cursor="hand2",
-                                          padx=14, state="disabled", command=self.supprimer)
+        self.bouton_supprimer = bouton(bas, "Supprimer la sélection", ROUGE, self.supprimer,
+                                       state="disabled")
         self.bouton_supprimer.pack(side="right", ipady=4)
-        self.bouton_tout = tk.Button(bas, text="Tout sélectionner", font=("Arial", 10), bg=GRIS,
-                                     relief="flat", cursor="hand2", padx=10, state="disabled",
-                                     command=self.tout_selectionner)
+        self.bouton_tout = bouton(bas, "Tout sélectionner", GRIS, self.tout_selectionner,
+                                  gras=False, padx=10, state="disabled")
         self.bouton_tout.pack(side="right", padx=6, ipady=4)
-        self.bouton_ouvrir = tk.Button(bas, text="Ouvrir le dossier", font=("Arial", 10), bg=GRIS,
-                                       relief="flat", cursor="hand2", padx=10, state="disabled",
-                                       command=self.ouvrir_dossier)
+        self.bouton_ouvrir = bouton(bas, "Ouvrir le dossier", GRIS, self.ouvrir_dossier,
+                                    gras=False, padx=10, state="disabled")
         self.bouton_ouvrir.pack(side="right", ipady=4)
 
         # ----- Les résultats : deux onglets, chacun avec un tableau -----
-        ttk.Style(self).configure("Treeview", rowheight=24)      # des lignes un peu plus aérées
         self.onglets = ttk.Notebook(self)
         self.onglets.pack(fill="both", expand=True, padx=30, pady=(8, 0))
 
         # Onglet 1 : ce qu'on peut supprimer. selectmode="extended" = on peut en sélectionner plusieurs
         # (Ctrl + clic, ou Maj + clic).
-        cadre1, self.tableau = self.creer_tableau(
+        cadre1, self.tableau = tableau(
+            self.onglets,
             [("taille", "Taille", 90, "e", False), ("type", "Type", 120, "w", False),
              ("etat", "État", 90, "w", False), ("dossier", "Dossier", 400, "w", True)],
             "extended")
@@ -107,28 +87,13 @@ class PageCaches(tk.Frame):
         self.tableau.bind("<<TreeviewSelect>>", lambda evenement: self.maj_boutons())
 
         # Onglet 2 : les plus gros dossiers (pour information, rien à supprimer ici).
-        cadre2, self.tableau_gros = self.creer_tableau(
+        cadre2, self.tableau_gros = tableau(
+            self.onglets,
             [("niveau", "Niveau", 70, "center", False), ("taille", "Taille", 90, "e", False),
-             ("dossier", "Dossier", 400, "w", True)],
-            "browse")
+             ("dossier", "Dossier", 400, "w", True)])
         self.onglets.add(cadre2, text="Plus gros dossiers")
 
         self.maj_boutons()
-
-    def creer_tableau(self, colonnes, selectmode):
-        """Fabrique un tableau (ttk.Treeview) avec une barre de défilement. Renvoie (cadre, tableau).
-        Chaque colonne = (identifiant, titre, largeur, alignement, s'étire ?)."""
-        cadre = tk.Frame(self.onglets)
-        arbre = ttk.Treeview(cadre, columns=[c[0] for c in colonnes], show="headings",
-                             selectmode=selectmode)
-        for identifiant, titre, largeur, alignement, s_etire in colonnes:
-            arbre.heading(identifiant, text=titre)
-            arbre.column(identifiant, width=largeur, anchor=alignement, stretch=s_etire)
-        barre = ttk.Scrollbar(cadre, orient="vertical", command=arbre.yview)
-        arbre.configure(yscrollcommand=barre.set)
-        barre.pack(side="right", fill="y")
-        arbre.pack(side="left", fill="both", expand=True)
-        return cadre, arbre
 
     # ------------------------------------------------------------
     # L'analyse
