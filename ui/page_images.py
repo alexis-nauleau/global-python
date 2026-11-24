@@ -1,13 +1,16 @@
-
-import os                         # os.startfile : ouvrir un dossier dans l'Explorateur
-import queue                      # une "boîte aux lettres" pour passer des messages entre deux fils
-import threading                  # pour travailler en arrière-plan SANS bloquer la fenêtre
+# ============================================================
+# page_images.py : la page "Optimiser les images".
+# ============================================================
+import os                         
+import queue                     
+import threading                  
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk      # choix de photos, messages, tableau
+from tkinter import filedialog, messagebox, ttk     
 
-from outils.photos import images                     # la logique 
-from outils.photos.formats import FORMATS            # les dimensions 
-from ui.style import BLEU, FOND, GRIS, ROUGE
+from outils.photos import images                     
+from outils.photos.formats import FORMATS            
+from ui.composants import barre_du_bas, bouton, carte_outil, tableau, titre_page
+from ui.style import BLEU, FOND, GRIS, ROUGE, TEXTE_DISCRET
 
 
 class PageImages(tk.Frame):
@@ -27,13 +30,13 @@ class PageImages(tk.Frame):
         self.messages = queue.Queue()     # la boîte aux lettres du fil de travail vers la fenêtre
         self.boutons = {}                 # mode -> (bouton Simuler, bouton Appliquer)
 
-        tk.Label(self, text=titre, font=("Arial", 20, "bold"),
-                 bg=FOND).pack(anchor="w", padx=30, pady=(20, 6))
+        titre_page(self, titre, pady=(20, 6))
 
         # ----- Bloc 1 : réduire le poids (WebP) -----
-        ligne, textes = self.creer_carte(
-            "Optimiser les images",
-            "Réduit le poids des photos (WebP), pour un site web. Les proportions sont conservées.")
+        ligne, textes = carte_outil(
+            self, "Optimiser les images",
+            "Réduit le poids des photos (WebP), pour un site web. Les proportions sont conservées.",
+            pady=5)
         reglage = tk.Frame(textes, bg="white")
         reglage.pack(fill="x", pady=(6, 0))
         tk.Label(reglage, text="Largeur max (px) :", font=("Arial", 9), bg="white").pack(side="left")
@@ -46,10 +49,10 @@ class PageImages(tk.Frame):
         self.creer_boutons(ligne, "reduire")
 
         # ----- Bloc 2 : réseaux sociaux (JPEG) -----
-        ligne, textes = self.creer_carte(
-            "Optimiser pour les réseaux sociaux",
+        ligne, textes = carte_outil(
+            self, "Optimiser pour les réseaux sociaux",
             "Recadre au centre à la taille exacte du réseau choisi, en JPEG "
-            "(Instagram et Facebook refusent le WebP).")
+            "(Instagram et Facebook refusent le WebP).", pady=5)
         reglage = tk.Frame(textes, bg="white")
         reglage.pack(fill="x", pady=(6, 0))
         # state="readonly" : on choisit dans la liste, on ne peut pas taper n'importe quoi.
@@ -73,7 +76,7 @@ class PageImages(tk.Frame):
         self.qualite.set(80)              # AVANT de brancher "command" : sinon set() la déclencherait
         self.qualite.config(command=lambda valeur: self.invalider())
         self.qualite.pack(side="left", padx=8)
-        tk.Label(cadre_qualite, text="80 = bon compromis", font=("Arial", 8), fg="#6B7280",
+        tk.Label(cadre_qualite, text="80 = bon compromis", font=("Arial", 8), fg=TEXTE_DISCRET,
                  bg=FOND).pack(side="left")
 
         # ----- Les résultats -----
@@ -81,65 +84,38 @@ class PageImages(tk.Frame):
         self.progression.pack(fill="x", padx=30, pady=(6, 0))
 
         # Le bas est rangé AVANT le tableau : il reste visible même si la fenêtre rétrécit.
-        bas = tk.Frame(self, bg=FOND)
-        bas.pack(side="bottom", fill="x", padx=30, pady=(6, 18))
+        bas = barre_du_bas(self, pady=(6, 18))
         self.resume = tk.Label(bas, text="Choisis des photos avec « Simuler » : rien n'est écrit.",
                                font=("Arial", 10, "bold"), fg="#666666", bg=FOND, anchor="w")
         self.resume.pack(side="left")
-        self.bouton_ouvrir = tk.Button(bas, text="Ouvrir le dossier de sortie", font=("Arial", 9),
-                                       bg=GRIS, relief="flat", cursor="hand2", padx=10,
-                                       state="disabled", command=self.ouvrir_sortie)
+        self.bouton_ouvrir = bouton(bas, "Ouvrir le dossier de sortie", GRIS, self.ouvrir_sortie,
+                                    gras=False, padx=10, state="disabled", font=("Arial", 9))
         self.bouton_ouvrir.pack(side="right", ipady=2)
-        self.bouton_arreter = tk.Button(bas, text="Arrêter", font=("Arial", 9), bg=GRIS,
-                                        relief="flat", cursor="hand2", padx=10,
-                                        state="disabled", command=self.arret.set)
+        self.bouton_arreter = bouton(bas, "Arrêter", GRIS, self.arret.set, gras=False, padx=10,
+                                     state="disabled", font=("Arial", 9))
         self.bouton_arreter.pack(side="right", padx=6, ipady=2)
 
-        cadre_tableau = tk.Frame(self)
+        cadre_tableau, self.tableau = tableau(
+            self, [("nom", "Image", 300, "w", True), ("avant", "Avant", 90, "w", False),
+                   ("apres", "Après", 90, "w", False), ("gain", "Gain", 190, "w", False)],
+            hauteur=4)
         cadre_tableau.pack(fill="both", expand=True, padx=30, pady=(8, 0))
-        colonnes = ("nom", "avant", "apres", "gain")
-        self.tableau = ttk.Treeview(cadre_tableau, columns=colonnes, show="headings", height=4)
-        for colonne, titre_colonne, largeur, s_etire in (("nom", "Image", 300, True),
-                                                         ("avant", "Avant", 90, False),
-                                                         ("apres", "Après", 90, False),
-                                                         ("gain", "Gain", 190, False)):
-            self.tableau.heading(colonne, text=titre_colonne)
-            self.tableau.column(colonne, width=largeur, anchor="w", stretch=s_etire)
         # Les "tags" colorent certaines lignes : gris = ignorée, rouge = erreur.
         self.tableau.tag_configure("ignoree", foreground="#999999")
         self.tableau.tag_configure("erreur", foreground=ROUGE)
-        barre = ttk.Scrollbar(cadre_tableau, orient="vertical", command=self.tableau.yview)
-        self.tableau.configure(yscrollcommand=barre.set)
-        barre.pack(side="right", fill="y")
-        self.tableau.pack(side="left", fill="both", expand=True)
 
         self.changer_format()             # affiche la taille du réseau choisi au départ
 
     # ------------------------------------------------------------
     # Construire les blocs
     # ------------------------------------------------------------
-    def creer_carte(self, nom, description):
-        """Une boîte blanche avec un nom et une description. Renvoie (la boîte, la zone de texte)."""
-        ligne = tk.Frame(self, bg="white", highlightbackground="#E5E7EB", highlightthickness=1)
-        ligne.pack(fill="x", padx=30, pady=5)
-        textes = tk.Frame(ligne, bg="white")
-        textes.pack(side="left", fill="x", expand=True, padx=15, pady=10)
-        tk.Label(textes, text=nom, font=("Arial", 12, "bold"), bg="white",
-                 anchor="w").pack(fill="x")
-        tk.Label(textes, text=description, font=("Arial", 9), fg="#6B7280", bg="white",
-                 anchor="w", justify="left", wraplength=430).pack(fill="x")
-        return ligne, textes
-
     def creer_boutons(self, ligne, mode):
         """Les boutons "Simuler" et "Appliquer" d'un bloc. "Appliquer" est GRISÉ tant qu'une
         simulation n'a pas réussi."""
-        appliquer = tk.Button(ligne, text="Appliquer", font=("Arial", 10, "bold"), bg=ROUGE,
-                              fg="white", relief="flat", cursor="hand2", padx=14,
-                              state="disabled", command=lambda: self.appliquer(mode))
+        appliquer = bouton(ligne, "Appliquer", ROUGE, lambda: self.appliquer(mode),
+                           state="disabled")
         appliquer.pack(side="right", padx=(6, 15), ipady=4)
-        simuler = tk.Button(ligne, text="Chercher", font=("Arial", 10, "bold"), bg=BLEU,
-                            fg="white", relief="flat", cursor="hand2", padx=14,
-                            command=lambda: self.simuler(mode))
+        simuler = bouton(ligne, "Simuler", BLEU, lambda: self.simuler(mode))
         simuler.pack(side="right", padx=(6, 0), ipady=4)
         self.boutons[mode] = (simuler, appliquer)
 

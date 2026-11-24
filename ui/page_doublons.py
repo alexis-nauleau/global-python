@@ -1,17 +1,14 @@
 # ============================================================
-
-# Tu cliques sur "Chercher" : un tableau liste les DOUBLONS CONFIRMÉS (même contenu que l'original)
-# et, dans un 2e onglet, les fichiers à vérifier à la main (jamais supprimés).
-# Puis "Mettre à la corbeille" envoie la sélection à la corbeille (récupérable).
-# La logique est dans outils/photos/doublons.py : ici, on ne s'occupe que de l'écran.
+# page_doublons.py : la page "Supprimer les doublons".
 # ============================================================
-import os                         # os.path : vérifier qu'un dossier existe, os.startfile : l'Explorateur
-import queue                      # une "boîte aux lettres" pour passer des messages entre deux fils
-import threading                  # pour travailler en arrière-plan SANS bloquer la fenêtre
+import os                         
+import queue                      
+import threading                  
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk      # choix de dossier, messages, tableaux
+from tkinter import filedialog, messagebox, ttk      
 
-from outils.photos import doublons                   # la logique (aucune fenêtre dedans)
+from outils.photos import doublons                   
+from ui.composants import barre_du_bas, bouton, carte_outil, ligne_statut, tableau, titre_page
 from ui.style import BLEU, FOND, GRIS, ROUGE, VERT
 
 
@@ -33,66 +30,46 @@ class PageDoublons(tk.Frame):
         self.arret = threading.Event()    # l'interrupteur "Arrêter" (lu par le fil de travail)
         self.messages = queue.Queue()     # la boîte aux lettres du fil de travail vers la fenêtre
 
-        tk.Label(self, text=titre, font=("Arial", 20, "bold"),
-                 bg=FOND).pack(anchor="w", padx=30, pady=(25, 15))
+        titre_page(self, titre)
 
         # ----- La ligne de l'outil (la boîte blanche) -----
-        ligne = tk.Frame(self, bg="white", highlightbackground="#E5E7EB", highlightthickness=1)
-        ligne.pack(fill="x", padx=30, pady=6)
+        ligne, _textes = carte_outil(
+            self, "Supprimer les doublons",
+            "Cherche les fichiers dont le nom finit par (1), (2) ou (3) ET dont le "
+            "contenu est identique à l'original. Les autres sont listés, jamais "
+            "supprimés. Les doublons vont à la corbeille.")
 
-        textes = tk.Frame(ligne, bg="white")
-        textes.pack(side="left", fill="x", expand=True, padx=15, pady=12)
-        tk.Label(textes, text="Supprimer les doublons", font=("Arial", 12, "bold"), bg="white",
-                 anchor="w").pack(fill="x")
-        tk.Label(textes, text="Cherche les fichiers dont le nom finit par (1), (2) ou (3) ET dont le "
-                              "contenu est identique à l'original. Les autres sont listés, jamais "
-                              "supprimés. Les doublons vont à la corbeille.",
-                 font=("Arial", 9), fg="#6B7280", bg="white", anchor="w", justify="left",
-                 wraplength=420).pack(fill="x")
-
-        self.bouton_chercher = tk.Button(ligne, text="Chercher", font=("Arial", 10, "bold"),
-                                         bg=BLEU, fg="white", relief="flat", cursor="hand2",
-                                         padx=14, command=self.choisir_et_chercher)
+        self.bouton_chercher = bouton(ligne, "Chercher", BLEU, self.choisir_et_chercher)
         self.bouton_chercher.pack(side="right", padx=(6, 15), ipady=4)
-        self.bouton_arreter = tk.Button(ligne, text="Arrêter", font=("Arial", 10, "bold"),
-                                        bg=GRIS, relief="flat", cursor="hand2", padx=14,
-                                        state="disabled", command=self.arret.set)
+        self.bouton_arreter = bouton(ligne, "Arrêter", GRIS, self.arret.set, state="disabled")
         self.bouton_arreter.pack(side="right", ipady=4)
 
-                # wraplength : un texte trop long passe à la ligne au lieu d'être coupé.
-        self.statut = tk.Label(self, text="Clique sur « Chercher » pour commencer.",
-                               font=("Arial", 9), fg="#6B7280", bg=FOND, anchor="w",
-                               justify="left", wraplength=600)
-        self.statut.pack(fill="x", padx=32, pady=(2, 0))
+        self.statut = ligne_statut(self, "Clique sur « Chercher » pour commencer.")
 
         # ----- La barre du bas (rangée AVANT le tableau : elle reste visible même si la fenêtre rétrécit) -----
-        bas = tk.Frame(self, bg=FOND)
-        bas.pack(side="bottom", fill="x", padx=30, pady=(8, 20))
+        bas = barre_du_bas(self)
 
         self.label_totaux = tk.Label(bas, text="", font=("Arial", 10, "bold"), bg=FOND)
         self.label_totaux.pack(side="left")
 
         # "Appliquer" : grisé tant qu'une recherche n'a pas réussi ET qu'aucune ligne n'est sélectionnée.
-        self.bouton_appliquer = tk.Button(bas, text="Mettre à la corbeille", font=("Arial", 10, "bold"),
-                                          bg=ROUGE, fg="white", relief="flat", cursor="hand2",
-                                          padx=14, state="disabled", command=self.appliquer)
+        self.bouton_appliquer = bouton(bas, "Mettre à la corbeille", ROUGE, self.appliquer,
+                                       state="disabled")
         self.bouton_appliquer.pack(side="right", ipady=4)
-        self.bouton_tout = tk.Button(bas, text="Tout sélectionner", font=("Arial", 10), bg=GRIS,
-                                     relief="flat", cursor="hand2", padx=10, state="disabled",
-                                     command=self.tout_selectionner)
+        self.bouton_tout = bouton(bas, "Tout sélectionner", GRIS, self.tout_selectionner,
+                                  gras=False, padx=10, state="disabled")
         self.bouton_tout.pack(side="right", padx=6, ipady=4)
-        self.bouton_ouvrir = tk.Button(bas, text="Ouvrir le dossier", font=("Arial", 10), bg=GRIS,
-                                       relief="flat", cursor="hand2", padx=10, state="disabled",
-                                       command=self.ouvrir_dossier)
+        self.bouton_ouvrir = bouton(bas, "Ouvrir le dossier", GRIS, self.ouvrir_dossier,
+                                    gras=False, padx=10, state="disabled")
         self.bouton_ouvrir.pack(side="right", ipady=4)
 
         # ----- Les résultats : deux onglets, chacun avec un tableau -----
-        ttk.Style(self).configure("Treeview", rowheight=24)
         self.onglets = ttk.Notebook(self)
         self.onglets.pack(fill="both", expand=True, padx=30, pady=(8, 0))
 
         # Onglet 1 : les doublons confirmés (sélection multiple : Ctrl + clic, Maj + clic).
-        cadre1, self.tableau = self.creer_tableau(
+        cadre1, self.tableau = tableau(
+            self.onglets,
             [("taille", "Taille", 80, "e", False), ("fichier", "Doublon", 200, "w", False),
              ("original", "Original", 170, "w", False), ("etat", "État", 110, "w", False),
              ("dossier", "Dossier", 300, "w", True)], "extended")
@@ -102,27 +79,13 @@ class PageDoublons(tk.Frame):
         self.tableau.bind("<<TreeviewSelect>>", lambda evenement: self.maj_boutons())
 
         # Onglet 2 : à vérifier à la main (rien n'est supprimé ici).
-        cadre2, self.tableau_verifier = self.creer_tableau(
+        cadre2, self.tableau_verifier = tableau(
+            self.onglets,
             [("raison", "Raison", 150, "w", False), ("fichier", "Fichier", 220, "w", False),
-             ("dossier", "Dossier", 400, "w", True)], "browse")
+             ("dossier", "Dossier", 400, "w", True)])
         self.onglets.add(cadre2, text="À vérifier à la main")
 
         self.maj_boutons()
-
-    def creer_tableau(self, colonnes, selectmode):
-        """Fabrique un tableau (ttk.Treeview) avec une barre de défilement. Renvoie (cadre, tableau).
-        Chaque colonne = (identifiant, titre, largeur, alignement, s'étire ?)."""
-        cadre = tk.Frame(self.onglets)
-        arbre = ttk.Treeview(cadre, columns=[c[0] for c in colonnes], show="headings",
-                             selectmode=selectmode)
-        for identifiant, titre, largeur, alignement, s_etire in colonnes:
-            arbre.heading(identifiant, text=titre)
-            arbre.column(identifiant, width=largeur, anchor=alignement, stretch=s_etire)
-        barre = ttk.Scrollbar(cadre, orient="vertical", command=arbre.yview)
-        arbre.configure(yscrollcommand=barre.set)
-        barre.pack(side="right", fill="y")
-        arbre.pack(side="left", fill="both", expand=True)
-        return cadre, arbre
 
     # ------------------------------------------------------------
     # La recherche
