@@ -59,8 +59,10 @@ class PageDoublons(tk.Frame):
                                         state="disabled", command=self.arret.set)
         self.bouton_arreter.pack(side="right", ipady=4)
 
+                # wraplength : un texte trop long passe à la ligne au lieu d'être coupé.
         self.statut = tk.Label(self, text="Clique sur « Chercher » pour commencer.",
-                               font=("Arial", 9), fg="#6B7280", bg=FOND, anchor="w")
+                               font=("Arial", 9), fg="#6B7280", bg=FOND, anchor="w",
+                               justify="left", wraplength=600)
         self.statut.pack(fill="x", padx=32, pady=(2, 0))
 
         # ----- La barre du bas (rangée AVANT le tableau : elle reste visible même si la fenêtre rétrécit) -----

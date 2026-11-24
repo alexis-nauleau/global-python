@@ -12,6 +12,7 @@ from ui.page_doublons import PageDoublons
 from ui.page_ranger import PageRanger                      
 from ui.page_caches import PageCaches              
 from ui.page_images import PageImages 
+from ui.page_ranger_photos import PageRangerPhotos  
 
 from ui.sortie import Sortie  
 
@@ -54,6 +55,12 @@ PAGES = [
         "titre": "Photos",
         "page": "doublons",
     },
+        {
+        "cle": "photos_annee",
+        "menu": "Ranger les photos",
+        "titre": "Photos",
+        "page": "ranger_photos",
+    },
 ]
 
 cles = [definition["cle"] for definition in PAGES]
@@ -71,7 +78,7 @@ LANCEMENT = {
                         "Le script te demandera encore de taper OUI dans la zone Résultat.",
     },
 
-    "outils/photos/ranger_photos.py": {"mode": "console", "reponse": True},
+    
     "outils/photos/supprimer_doublons.py": {
         "mode": "dossier",
         "simulation": ["--simulation"],
@@ -101,6 +108,7 @@ class Application:
         self.dossiers = {}                # pour les outils "chercher" : le dernier dossier cherché
         self.page_doublons = None         # la page des doublons
         self.page_ranger = None   # la page "Ranger un dossier"
+        self.page_ranger_photos = None    # la page "Ranger les photos"
 
         # ----- Réglages de la fenêtre -----
         fenetre.title("Boîte à outils")
@@ -193,6 +201,9 @@ class Application:
         if definition.get("page") == "ranger":
             self.page_ranger = PageRanger(zone, definition["titre"])
             return self.page_ranger
+        if definition.get("page") == "ranger_photos":
+            self.page_ranger_photos = PageRangerPhotos(zone, definition["titre"])
+            return self.page_ranger_photos
 
         page = tk.Frame(zone, bg=FOND)
 
@@ -409,7 +420,7 @@ class Application:
         for sortie in self.sorties:
             if sortie.processus is not None:
                 sortie.processus.terminate()
-        for page in (self.page_caches, self.page_images, self.page_doublons, self.page_ranger):
+        for page in (self.page_caches, self.page_images, self.page_doublons, self.page_ranger, self.page_ranger_photos):
             if page is not None:
                 page.arret.set()                   # arrête l'analyse / la suppression / l'optimisation en cours
         self.fenetre.destroy()
