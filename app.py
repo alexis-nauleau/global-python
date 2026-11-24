@@ -7,15 +7,18 @@ import sys                        # sys.executable = le Python qui fait tourner 
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox      # choix de dossier + petites fenêtres de message
-from ui.page_doublons import PageDoublons          
 
+from ui.page_doublons import PageDoublons 
+from ui.page_ranger import PageRanger                      
 from ui.page_caches import PageCaches              
-from ui.page_images import PageImages             
-from ui.sortie import Sortie                       
+from ui.page_images import PageImages 
+
+from ui.sortie import Sortie  
+
 from ui.style import BLEU, FOND, FOND_MENU, MENU_ACTIF, ROUGE   
 
 PAGES = [
-    # ===== Section "Gagner de la place" =====
+
     {
         "cle": "caches",                      # chaque "cle" doit être UNIQUE
         "menu": "Analyser puis supprimer les caches",
@@ -32,18 +35,7 @@ PAGES = [
              "outils/gagner_de_la_place/nettoyer_projets.py"),
         ],
     },
-    {
-        "cle": "ranger_dossier",
-        "menu": "Ranger un dossier",
-        "titre": "Gagner de la place",
-        "outils": [
-            ("Ranger un dossier",
-             "Trie un dossier en rangeant les fichiers par extension.",
-             "outils/gagner_de_la_place/ranger.py"),
-        ],
-    },
 
-    # ===== Section "Photos" =====
     {
         "cle": "images",
         "menu": "Optimiser les images",
@@ -51,16 +43,12 @@ PAGES = [
         "page": "images",
     },
     {
-        "cle": "photos_annee",
-        "menu": "Ranger les photos",
-        "titre": "Photos",
-        "outils": [
-            ("Ranger les photos",
-             "Trie les photos par année.",
-             "outils/photos/ranger_photos.py"),
-        ],
+        "cle": "ranger_dossier",
+        "menu": "Ranger un dossier",
+        "titre": "Gagner de la place",
+        "page": "ranger",
     },
-       {
+    {
         "cle": "doublons",
         "menu": "Supprimer les doublons",
         "titre": "Photos",
@@ -81,13 +69,6 @@ LANCEMENT = {
         "confirmation": "Le dossier node_modules des projets dormants sera SUPPRIMÉ "
                         "(ton code n'est jamais touché).\n"
                         "Le script te demandera encore de taper OUI dans la zone Résultat.",
-    },
-    "outils/gagner_de_la_place/ranger.py": {
-        "mode": "chercher",
-        "simulation": [],
-        "reel": ["--appliquer"],
-        "confirmation": "Les fichiers du dossier seront DÉPLACÉS dans des sous-dossiers "
-                        "(Images, Documents...).",
     },
 
     "outils/photos/ranger_photos.py": {"mode": "console", "reponse": True},
@@ -115,17 +96,17 @@ class Application:
         # On garde la fenêtre dans "self" , pour que toutes les méthodes s'en servent.
         self.fenetre = fenetre
         self.sorties = []                 # toutes les boîtes "Résultat" (une par page d'outil)
-        self.page_caches = None           # la page des caches, si elle existe
-        self.page_images = None           # la page des images, si elle existe
+        self.page_caches = None           # la page des caches
+        self.page_images = None           # la page des images
         self.dossiers = {}                # pour les outils "chercher" : le dernier dossier cherché
-        self.page_doublons = None         # la page des doublons, si elle existe
+        self.page_doublons = None         # la page des doublons
+        self.page_ranger = None   # la page "Ranger un dossier"
 
         # ----- Réglages de la fenêtre -----
         fenetre.title("Boîte à outils")
         fenetre.geometry("1000x700")
         fenetre.minsize(920, 620)
-        # Si tu fermes la fenêtre pendant qu'un script tourne, on l'arrête proprement.
-        fenetre.protocol("WM_DELETE_WINDOW", self.fermer)
+        fenetre.protocol("WM_DELETE_WINDOW", self.fermer)# Si tu fermes la fenêtre pendant qu'un script tourne, on l'arrête proprement.
 
         # ---------- LE MENU  ----------
 
@@ -209,6 +190,9 @@ class Application:
         if definition.get("page") == "doublons":
             self.page_doublons = PageDoublons(zone, definition["titre"])
             return self.page_doublons
+        if definition.get("page") == "ranger":
+            self.page_ranger = PageRanger(zone, definition["titre"])
+            return self.page_ranger
 
         page = tk.Frame(zone, bg=FOND)
 
@@ -244,23 +228,16 @@ class Application:
     def creer_ligne(self, page, nom, description, fichier, sortie):
         """Une ligne = un outil : son nom, sa description, et ses boutons."""
 
-        # Une boîte blanche avec une fine bordure grise.
         # highlightbackground = couleur de la bordure ; highlightthickness = son épaisseur (1 pixel).
         ligne = tk.Frame(page, bg="white", highlightbackground="#E5E7EB", highlightthickness=1)
         ligne.pack(fill="x", padx=30, pady=6)
 
-        # --- La partie texte, à gauche : le nom en dessous duquel se trouve la description ---
         textes = tk.Frame(ligne, bg="white")
         # expand=True : cette boîte prend tout l'espace libre, ce qui repousse les boutons à droite.
         textes.pack(side="left", fill="x", expand=True, padx=15, pady=12)
 
-        # Le nom de l'outil, en gras.
         tk.Label(textes, text=nom, font=("Arial", 12, "bold"), bg="white",
                  anchor="w").pack(fill="x")
-
-        # La description, en plus petit et en gris.
-
-        #   wraplength=340 : au-delà de 340 pixels de large, le texte passe à la ligne tout seul.
         tk.Label(textes, text=description, font=("Arial", 9), fg="#6B7280", bg="white",
                  anchor="w", justify="left", wraplength=340).pack(fill="x")
 
@@ -432,7 +409,7 @@ class Application:
         for sortie in self.sorties:
             if sortie.processus is not None:
                 sortie.processus.terminate()
-        for page in (self.page_caches, self.page_images, self.page_doublons):
+        for page in (self.page_caches, self.page_images, self.page_doublons, self.page_ranger):
             if page is not None:
                 page.arret.set()                   # arrête l'analyse / la suppression / l'optimisation en cours
         self.fenetre.destroy()
