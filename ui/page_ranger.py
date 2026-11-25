@@ -1,7 +1,7 @@
 # ============================================================
 # page_ranger.py : la page "Ranger un dossier".
 # ============================================================
-import os                         
+import os                        
 import queue                      
 import threading                  
 import tkinter as tk

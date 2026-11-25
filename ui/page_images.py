@@ -2,13 +2,13 @@
 # page_images.py : la page "Optimiser les images".
 # ============================================================
 import os                         
-import queue                      
+import queue                     
 import threading                  
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk      
+from tkinter import filedialog, messagebox, ttk     
 
-from outils.photos import images                     # la logique (aucune fenêtre dedans)
-from outils.photos.formats import FORMATS            # les dimensions des réseaux (à modifier dans formats.py)
+from outils.photos import images                     
+from outils.photos.formats import FORMATS            
 from ui.composants import barre_du_bas, bouton, carte_outil, tableau, titre_page
 from ui.style import BLEU, FOND, GRIS, ROUGE, TEXTE_DISCRET
 

@@ -38,7 +38,9 @@ class PageRangerPhotos(PageRanger):
                  f"{sources[rangement_photos.FICHIER]} date du fichier, "
                  f"{sources[rangement_photos.AUCUNE]} sans date (« Autre »).")
         if resultats["sans_date_illisible"]:
-            texte += (f" ⚠ {resultats['sans_date_illisible']} vidéo(s) ou .heic sans date lisible : "
+            # Sans pillow-heif, les .heic ne sont pas lisibles non plus : on le dit.
+            quoi = "vidéo(s)" if rangement_photos.HEIF_DISPONIBLE else "vidéo(s) ou .heic (pillow-heif absent)"
+            texte += (f" ⚠ {resultats['sans_date_illisible']} {quoi} sans date lisible : "
                       "coche la date de modification pour les classer.")
         if resultats["autres"]:
             texte += f" {resultats['autres']} autre(s) fichier(s) non touchés."

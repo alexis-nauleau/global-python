@@ -1,8 +1,11 @@
 """La page Ranger les photos range les photos et vidéos d'un dossier dans un sous-dossier par ANNÉE (2019, 2020...).
 
 Attention : la bibliothèque Pillow lit l'EXIF des photos JPEG et PNG, mais PAS celui des vidéos
-(.mp4, .mov) ni des photos .heic (le format des iPhone). Ces fichiers n'ont donc une date que
-par leur nom (WhatsApp) ou, si tu l'actives, par leur date de modification.
+(.mp4, .mov). Ces fichiers n'ont donc une date que par leur nom (WhatsApp) ou, si tu l'actives,
+par leur date de modification.
+
+Les photos .heic (le format des iPhone) sont lues grâce à la bibliothèque FACULTATIVE pillow-heif
+(pip install pillow-heif). Sans elle, tout fonctionne comme pour les vidéos : pas d'EXIF.
 
 Le déplacement et l'annulation sont ceux de "Ranger un dossier" (outils/gagner_de_la_place/
 rangement.py) : jamais d'écrasement, revérification au moment de déplacer, annulation possible.
@@ -13,12 +16,22 @@ from pathlib import Path
 
 from PIL import Image                        # lit les images et leurs informations EXIF (Pillow)
 
+# pillow-heif apprend à Pillow à ouvrir les .heic. Elle est FACULTATIVE : si elle n'est pas installée,
+# l'application marche quand même (les .heic sont alors traités comme des vidéos : pas d'EXIF).
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()           # "à partir de maintenant, Image.open sait lire les .heic"
+    HEIF_DISPONIBLE = True
+except ImportError:                              # la bibliothèque n'est pas installée
+    HEIF_DISPONIBLE = False
+
 from outils.gagner_de_la_place import rangement      # raison_de_laisser, nom_libre
 
 
 EXTENSIONS = {".jpg", ".jpeg", ".png", ".mp4", ".mov", ".heic"}
 
-EXTENSIONS_SANS_EXIF = {".mp4", ".mov", ".heic"}
+EXTENSIONS_VIDEO = {".mp4", ".mov"}              # Pillow ne lit jamais leur date
+EXTENSIONS_HEIC = {".heic"}                      # lisibles seulement si pillow-heif est installée
 
 SANS_DATE = "Autre"               
 ANNEE_MIN = 1990                   
@@ -32,6 +45,12 @@ MOTIFS_WHATSAPP = [
 
 
 EXIF, WHATSAPP, FICHIER, AUCUNE = "EXIF", "nom WhatsApp", "date du fichier", "aucune date"
+
+
+def sans_exif(chemin):
+    """Vrai si on ne PEUT PAS lire l'EXIF de ce fichier : une vidéo, ou un .heic sans pillow-heif."""
+    extension = chemin.suffix.lower()
+    return extension in EXTENSIONS_VIDEO or (extension in EXTENSIONS_HEIC and not HEIF_DISPONIBLE)
 
 
 def date_plausible(date):
@@ -77,8 +96,8 @@ def date_du_fichier(informations):
 def trouver_date(chemin, informations, utiliser_date_fichier):
     """Renvoie (date, source). La source dit d'où vient la date : EXIF, nom WhatsApp, date du fichier,
     ou "aucune date". Une date dont l'année n'est pas plausible est ignorée."""
-    # L'EXIF n'est tenté que pour les photos : Pillow ne lit pas les vidéos ni les .heic.
-    if chemin.suffix.lower() not in EXTENSIONS_SANS_EXIF:
+    # L'EXIF n'est tenté que pour les fichiers dont Pillow sait lire l'EXIF (pas les vidéos).
+    if not sans_exif(chemin):
         date = date_prise_de_vue(chemin)
         if date_plausible(date):
             return date, EXIF
@@ -101,7 +120,7 @@ def chercher(dossier, utiliser_date_fichier, arret, progression=None):
 
     Renvoie le même dictionnaire que rangement.chercher, avec en plus :
       "sources"      : combien de fichiers pour chaque source de date
-      "sans_date_illisible" : combien de vidéos / .heic sont restés sans date
+      "sans_date_illisible" : combien de vidéos (ou de .heic, sans pillow-heif) sont restés sans date
       "autres"       : combien de fichiers ne sont pas des photos ou vidéos (ils ne sont pas touchés)
     Chaque élément à ranger a aussi "date" (datetime ou None) et "source_date"."""
     dossier = Path(dossier)
@@ -133,7 +152,7 @@ def chercher(dossier, utiliser_date_fichier, arret, progression=None):
 
         date, source = trouver_date(chemin, informations, utiliser_date_fichier)
         resultats["sources"][source] += 1
-        if date is None and chemin.suffix.lower() in EXTENSIONS_SANS_EXIF:
+        if date is None and sans_exif(chemin):
             resultats["sans_date_illisible"] += 1
         sous_dossier = str(date.year) if date else SANS_DATE
         if (dossier / sous_dossier).exists() and not (dossier / sous_dossier).is_dir():

@@ -1,4 +1,6 @@
-
+# ============================================================
+# composants.py : les petits morceaux d'écran utilisés par PLUSIEURS pages.
+# ============================================================
 import tkinter as tk
 from tkinter import ttk
 
