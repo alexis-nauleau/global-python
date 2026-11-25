@@ -1,7 +1,5 @@
 # ============================================================
 # page_caches.py : la page "Analyser puis supprimer les caches".
-# La logique (analyser, vérifier, vider) est dans outils/gagner_de_la_place/caches.py :
-# ici, on ne s'occupe que de l'écran.
 # ============================================================
 import os                         # os.path : vérifier qu'un dossier existe, os.startfile : l'Explorateur
 import queue                      # une "boîte aux lettres" pour passer des messages entre deux fils
