@@ -1,17 +1,18 @@
 
-# Ce fichier ne contient que le menu et le lancement des scripts. 
 
-import os                         # pour nettoyer les chemins de dossiers
+
+import os                         
 import subprocess                 # pour LANCER un autre programme (nos scripts)
 import sys                        # sys.executable = le Python qui fait tourner CE programme
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, messagebox      # choix de dossier + petites fenêtres de message
+from tkinter import filedialog, messagebox      
 
 from ui.page_doublons import PageDoublons 
 from ui.page_ranger import PageRanger                      
 from ui.page_caches import PageCaches              
 from ui.page_images import PageImages 
+from ui.page_projets import PageProjets
 from ui.page_ranger_photos import PageRangerPhotos  
 
 from ui.sortie import Sortie  
@@ -21,7 +22,7 @@ from ui.style import BLEU, FOND, FOND_MENU, MENU_ACTIF, ROUGE
 PAGES = [
 
     {
-        "cle": "caches",                      # chaque "cle" doit être UNIQUE
+        "cle": "caches",                      
         "menu": "Analyser puis supprimer les caches",
         "titre": "Gagner de la place",
         "page": "caches",
@@ -30,11 +31,7 @@ PAGES = [
         "cle": "projets",
         "menu": "Nettoyer un projet web",
         "titre": "Gagner de la place",
-        "outils": [
-            ("Nettoyer les projets dormants",
-             "Supprime le dossier node_modules des projets web non modifiés depuis 60 jours.",
-             "outils/gagner_de_la_place/nettoyer_projets.py"),
-        ],
+        "page": "projets",
     },
 
     {
@@ -68,17 +65,6 @@ if len(cles) != len(set(cles)):
     raise SystemExit("Erreur dans PAGES : deux pages ont la même 'cle'.")
 
 LANCEMENT = {
-     "outils/gagner_de_la_place/nettoyer_projets.py": {
-        "mode": "chercher",         
-        "simulation": [],
-        "reel": ["--appliquer"],
-        "reponse": True,             # ce script demande de taper OUI avant de supprimer
-        "confirmation": "Le dossier node_modules des projets dormants sera SUPPRIMÉ "
-                        "(ton code n'est jamais touché).\n"
-                        "Le script te demandera encore de taper OUI dans la zone Résultat.",
-    },
-
-    
     "outils/photos/supprimer_doublons.py": {
         "mode": "dossier",
         "simulation": ["--simulation"],
@@ -103,12 +89,13 @@ class Application:
         # On garde la fenêtre dans "self" , pour que toutes les méthodes s'en servent.
         self.fenetre = fenetre
         self.sorties = []                 # toutes les boîtes "Résultat" (une par page d'outil)
-        self.page_caches = None           # la page des caches
-        self.page_images = None           # la page des images
+        self.page_caches = None           
+        self.page_images = None          
         self.dossiers = {}                # pour les outils "chercher" : le dernier dossier cherché
-        self.page_doublons = None         # la page des doublons
-        self.page_ranger = None   # la page "Ranger un dossier"
-        self.page_ranger_photos = None    # la page "Ranger les photos"
+        self.page_doublons = None        
+        self.page_ranger = None   
+        self.page_ranger_photos = None    
+        self.page_projets = None          
 
         # ----- Réglages de la fenêtre -----
         fenetre.title("Boîte à outils")
@@ -204,6 +191,9 @@ class Application:
         if definition.get("page") == "ranger_photos":
             self.page_ranger_photos = PageRangerPhotos(zone, definition["titre"])
             return self.page_ranger_photos
+        if definition.get("page") == "projets":
+            self.page_projets = PageProjets(zone, definition["titre"])
+            return self.page_projets
 
         page = tk.Frame(zone, bg=FOND)
 
@@ -420,7 +410,8 @@ class Application:
         for sortie in self.sorties:
             if sortie.processus is not None:
                 sortie.processus.terminate()
-        for page in (self.page_caches, self.page_images, self.page_doublons, self.page_ranger, self.page_ranger_photos):
+        for page in (self.page_caches, self.page_images, self.page_doublons, self.page_ranger,
+                     self.page_ranger_photos, self.page_projets):
             if page is not None:
                 page.arret.set()                   # arrête l'analyse / la suppression / l'optimisation en cours
         self.fenetre.destroy()
