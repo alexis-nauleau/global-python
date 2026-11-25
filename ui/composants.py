@@ -1,11 +1,5 @@
 # ============================================================
 # composants.py : les petits morceaux d'écran utilisés par PLUSIEURS pages.
-# Avant, chaque page recopiait les mêmes lignes pour fabriquer un bouton, une carte, un tableau...
-# Maintenant, elle appelle une fonction d'ici. Pour changer l'apparence de tous les boutons,
-# par exemple, il suffit de modifier la fonction "bouton" : toutes les pages suivent.
-#
-# Ces fonctions ne font que FABRIQUER les éléments : c'est la page qui décide où les placer
-# (avec pack) et ce qu'ils font quand on clique.
 # ============================================================
 import tkinter as tk
 from tkinter import ttk
